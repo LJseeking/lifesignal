@@ -51,7 +51,7 @@ export function DecisionSceneCard({
       {isOpen && (
         <div className="px-6 pb-6 pt-2 border-t border-slate-50 bg-slate-50/30">
           <p className="text-sm text-slate-600 leading-relaxed mb-6 italic">
-            "{description}"
+            &quot;{description}&quot;
           </p>
           
           <div className="grid grid-cols-2 gap-4">

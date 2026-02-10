@@ -55,7 +55,7 @@ export default async function TarotPage() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-white tracking-tight">今日塔罗启示</h1>
-            <p className="text-[10px] text-purple-400/60 font-bold uppercase tracking-widest mt-0.5">Today's Tarot Guidance</p>
+            <p className="text-[10px] text-purple-400/60 font-bold uppercase tracking-widest mt-0.5">Today&apos;s Tarot Guidance</p>
           </div>
         </div>
 

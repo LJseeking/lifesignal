@@ -10,14 +10,14 @@ interface EnergyBadgeProps {
 }
 
 export function EnergyBadge({ level, state, estimatedDays }: EnergyBadgeProps) {
-  const stateColors = {
+  const stateColors: Record<EnergyState, string> = {
     high: 'text-emerald-500 bg-emerald-50 border-emerald-100',
     medium: 'text-amber-500 bg-amber-50 border-amber-100',
     low: 'text-rose-500 bg-rose-50 border-rose-100',
     dormant: 'text-slate-400 bg-slate-50 border-slate-100',
   };
 
-  const stateLabels = {
+  const stateLabels: Record<EnergyState, string> = {
     high: 'High',
     medium: 'Medium',
     low: 'Low',

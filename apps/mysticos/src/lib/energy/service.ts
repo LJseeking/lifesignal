@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/prisma';
-import { differenceInDays, parseISO } from 'date-fns';
+import { differenceInDays, parseISO, format } from 'date-fns';
+
+export type EnergyState = 'dormant' | 'low' | 'high' | 'medium';
 
 export async function getEnergyAccount(userId: string) {
   try {
@@ -37,7 +39,7 @@ export async function applyDailyDecayIfNeeded(userId: string, today: string) {
   if (account.id === "mock-energy-account") return account;
 
   const todayDate = parseISO(today);
-  const lastDecay = account.lastDecayDate ? account.lastDecayDate : new Date(0);
+  const lastDecay = account.lastDecayDate ? parseISO(account.lastDecayDate) : new Date(0);
   
   // 简单逻辑：如果上次衰减日期不是今天，就衰减
   // 注意：这里用 UTC 日期比较简化处理
@@ -52,7 +54,7 @@ export async function applyDailyDecayIfNeeded(userId: string, today: string) {
         where: { userId },
         data: {
           energyLevel: newLevel,
-          lastDecayDate: todayDate
+          lastDecayDate: format(todayDate, 'yyyy-MM-dd')
         }
       });
       return updated;
@@ -65,14 +67,39 @@ export async function applyDailyDecayIfNeeded(userId: string, today: string) {
   return account;
 }
 
-export function computeEnergyState(level: number) {
+export function computeEnergyState(level: number): EnergyState {
   if (level <= 20) return 'dormant'; // 休眠
   if (level <= 40) return 'low';     // 低能量
   if (level >= 80) return 'high';    // 高能量
-  return 'normal';
+  return 'medium';
 }
 
 export function estimateRuntimeDays(level: number) {
   // 假设每天消耗 5 点
   return Math.floor(level / 5);
+}
+
+export async function chargeEnergy(userId: string, amount: number) {
+  const account = await getEnergyAccount(userId);
+  if (account.id === "mock-energy-account") return account;
+
+  const newLevel = Math.min(100, account.energyLevel + amount);
+  return await prisma.energyAccount.update({
+    where: { userId },
+    data: { 
+      energyLevel: newLevel,
+      lastChargedAt: new Date()
+    }
+  });
+}
+
+export async function consumeEnergy(userId: string, amount: number) {
+  const account = await getEnergyAccount(userId);
+  if (account.id === "mock-energy-account") return account;
+
+  const newLevel = Math.max(0, account.energyLevel - amount);
+  return await prisma.energyAccount.update({
+    where: { userId },
+    data: { energyLevel: newLevel }
+  });
 }

@@ -3,7 +3,7 @@ import { getDeviceId } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { ChevronLeft, Info, BatteryCharging, Zap, Clock } from 'lucide-react';
 import Link from 'next/link';
-import { getEnergyAccount, computeEnergyState, estimateRuntimeDays } from '@/lib/energy/service';
+import { getEnergyAccount, computeEnergyState, estimateRuntimeDays, EnergyState } from '@/lib/energy/service';
 import { EnergyBar } from '@/components/energy/EnergyBar';
 import { ChargeOptions } from '@/components/energy/ChargeOptions';
 
@@ -22,14 +22,14 @@ export default async function EnergyPage() {
   const state = computeEnergyState(account.energyLevel);
   const runtimeDays = estimateRuntimeDays(account.energyLevel);
 
-  const stateLabels = {
+  const stateLabels: Record<EnergyState, string> = {
     high: '运行效率：极佳',
     medium: '运行效率：平衡',
     low: '运行效率：低电量',
     dormant: '运行效率：已休眠',
   };
 
-  const stateColors = {
+  const stateColors: Record<EnergyState, string> = {
     high: 'text-emerald-600',
     medium: 'text-amber-600',
     low: 'text-rose-600',
