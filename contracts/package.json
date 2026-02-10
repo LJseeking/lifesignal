@@ -1,0 +1,21 @@
+{
+  "name": "life-signal-contracts",
+  "version": "0.1.0",
+  "description": "Blockchain settlement layer for Life Signal",
+  "main": "index.js",
+  "scripts": {
+    "test": "hardhat test",
+    "compile": "hardhat compile",
+    "deploy": "hardhat run scripts/deploy.ts"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@openzeppelin/contracts": "^5.0.0",
+    "hardhat": "^2.22.0",
+    "typescript": "^5.4.0",
+    "ts-node": "^10.9.2",
+    "@types/node": "^20.11.0",
+    "@types/mocha": "^10.0.6",
+    "@types/chai": "^4.3.11"
+  }
+}

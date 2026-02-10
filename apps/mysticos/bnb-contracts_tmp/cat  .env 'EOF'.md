@@ -1,0 +1,7 @@
+cat > .env <<'EOF'
+PRIVATE_KEY=0xff4618852dddaa6bbaecee1f852c296ab626b333575f0c6a257bb4b8641de0d0
+EOF
+
+
+
+echo "PRIVATE_KEY=0xff4618852dddaa6bbaecee1f852c296ab626b333575f0c6a257bb4b8641de0d0" > .env

@@ -1,0 +1,437 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Counter - BSC Testnet</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <style>
+      body { font-family: ui-sans-serif, system-ui, -apple-system; padding: 18px; max-width: 820px; margin: 0 auto; }
+      .card { border: 1px solid #e5e7eb; border-radius: 14px; padding: 14px; margin: 14px 0; }
+      .row { display:flex; gap:10px; flex-wrap: wrap; align-items: center; }
+      button { padding: 10px 12px; border-radius: 10px; border: 1px solid #d1d5db; background: #fff; cursor: pointer; }
+      button:disabled { opacity: .55; cursor: not-allowed; }
+      input { padding: 10px 12px; border-radius: 10px; border: 1px solid #d1d5db; width: 90px; }
+      code { background:#f3f4f6; padding:2px 6px; border-radius:8px; }
+      a { color: #2563eb; text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      .badge { padding: 4px 8px; border-radius: 999px; font-size: 12px; border: 1px solid #e5e7eb; background: #f9fafb; }
+      .ok { border-color: #86efac; background: #f0fdf4; }
+      .bad { border-color: #fca5a5; background: #fef2f2; }
+      #toast { position:fixed; right:16px; top:16px; max-width:420px; display:none; padding:12px 14px; border-radius:12px;
+               background:#111; color:#fff; box-shadow:0 12px 40px rgba(0,0,0,.28); }
+      #spinner { display:none; margin-top:10px; }
+      pre { background:#0b1020; color:#e5e7eb; padding:12px; border-radius:12px; overflow:auto; }
+      .muted { color:#6b7280; }
+    </style>
+  </head>
+
+  <body>
+    <h2>Counter (BNB Testnet)</h2>
+
+    <div class="card">
+      <div class="row" style="justify-content: space-between;">
+        <div class="row">
+          <span class="badge" id="netBadge">Network: -</span>
+          <span class="badge" id="acctBadge">Account: -</span>
+        </div>
+        <div class="row">
+          <button id="connect">Connect Wallet</button>
+          <button id="switchNet">Switch to BNB Testnet</button>
+        </div>
+      </div>
+
+      <div style="margin-top:10px" class="row">
+        <div>Contract:</div>
+        <code id="addr"></code>
+        <span class="muted">·</span>
+        <a id="addrLink" target="_blank" rel="noreferrer">View on BscScan</a>
+      </div>
+
+      <div id="spinner" class="muted">⏳ Pending…</div>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <button id="read">Read x</button>
+        <button id="inc">inc()</button>
+        <input id="by" value="5" />
+        <button id="incBy">incBy(by)</button>
+        <span class="muted">Current x:</span>
+        <code id="xVal">-</code>
+      </div>
+      <div class="muted" style="margin-top:8px">
+        Tip: If your wallet is not on chainId 97, click “Switch to BNB Testnet”.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row" style="justify-content: space-between;">
+        <div class="muted">Logs</div>
+        <button id="clearLog">Clear</button>
+      </div>
+      <pre id="log"></pre>
+    </div>
+
+    <div id="toast"><div id="toastText"></div></div>
+
+    <script type="module">
+      import { ethers } from "https://cdn.jsdelivr.net/npm/ethers@6.13.4/+esm";
+
+      // ========= Config =========
+      const CONTRACT = "0xe44c472e1fcb963410b6723ab1327b5458aaf4ad";
+
+      // BNB Testnet (Chapel)
+      const CHAIN_ID_DEC = 97;
+      const CHAIN_ID_HEX = "0x61";
+      const RPC = "https://bsc-testnet-rpc.publicnode.com";
+      const EXPLORER = "https://testnet.bscscan.com";
+      const EXPLORER_TX = `${EXPLORER}/tx/`;
+      const EXPLORER_ADDR = `${EXPLORER}/address/`;
+
+      const CHAIN_PARAMS = {
+        chainId: CHAIN_ID_HEX,
+        chainName: "BNB Smart Chain Testnet",
+        nativeCurrency: { name: "tBNB", symbol: "tBNB", decimals: 18 },
+        rpcUrls: [RPC],
+        blockExplorerUrls: [EXPLORER],
+      };
+
+      const ABI = [
+        {"inputs":[],"name":"x","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+        {"inputs":[],"name":"inc","outputs":[],"stateMutability":"nonpayable","type":"function"},
+        {"inputs":[{"internalType":"uint256","name":"by","type":"uint256"}],"name":"incBy","outputs":[],"stateMutability":"nonpayable","type":"function"},
+        {"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"by","type":"uint256"}],"name":"Increment","type":"event"}
+      ];
+
+      // ========= UI =========
+      const logEl = document.getElementById("log");
+      const toastEl = document.getElementById("toast");
+      const toastTextEl = document.getElementById("toastText");
+      const spinnerEl = document.getElementById("spinner");
+      const netBadge = document.getElementById("netBadge");
+      const acctBadge = document.getElementById("acctBadge");
+      const addrEl = document.getElementById("addr");
+      const addrLink = document.getElementById("addrLink");
+      const xVal = document.getElementById("xVal");
+
+      addrEl.textContent = CONTRACT;
+      addrLink.href = `${EXPLORER_ADDR}${CONTRACT}`;
+
+      const log = (...args) => (logEl.textContent += args.join(" ") + "\\n");
+
+      function showToast(message, ms = 2400) {
+        toastTextEl.textContent = message;
+        toastEl.style.display = "block";
+        setTimeout(() => (toastEl.style.display = "none"), ms);
+      }
+
+      function setSpinner(on, text = "Pending…") {
+        spinnerEl.style.display = on ? "block" : "none";
+        spinnerEl.textContent = on ? `⏳ ${text}` : "";
+      }
+
+      function setBusy(busy) {
+        for (const id of ["connect","switchNet","read","inc","incBy"]) {
+          const el = document.getElementById(id);
+          if (el) el.disabled = !!busy;
+        }
+      }
+
+      function prettyError(e) {
+        const msg = (e?.shortMessage || e?.message || "").toLowerCase();
+
+        if (e?.code === 4001 || msg.includes("user rejected") || msg.includes("rejected")) {
+          return "你取消了钱包签名/交易。";
+        }
+        if (msg.includes("insufficient funds") || msg.includes("funds for gas")) {
+          return "余额不足：测试网 tBNB 不够支付 gas。";
+        }
+        if (msg.includes("timeout") || msg.includes("timed out") || msg.includes("429") || msg.includes("rate limit")) {
+          return "RPC 不稳定/请求超时：请稍后重试或切换 RPC。";
+        }
+        if (msg.includes("chain") && (msg.includes("wrong") || msg.includes("mismatch"))) {
+          return "网络不对：请切换到 BNB Testnet（Chapel，ChainId=97）。";
+        }
+        return `发生错误：${e?.shortMessage || e?.message || "unknown error"}`;
+      }
+
+      // ========= Wallet / Contract =========
+      let provider, signer, contract;
+
+      async function ensureWallet() {
+        if (!window.ethereum) throw new Error("未检测到钱包扩展，请安装 MetaMask 或币安钱包。");
+        provider = new ethers.BrowserProvider(window.ethereum);
+      }
+
+      async function getChainId() {
+        const net = await provider.getNetwork();
+        return Number(net.chainId);
+      }
+
+      function updateBadges(chainId, account) {
+        const ok = chainId === CHAIN_ID_DEC;
+        netBadge.textContent = `Network: ${chainId ?? "-"}`;
+        netBadge.className = `badge ${ok ? "ok" : "bad"}`;
+
+        acctBadge.textContent = `Account: ${account ? account.slice(0,6) + "…" + account.slice(-4) : "-"}`;
+        acctBadge.className = "badge";
+      }
+
+      async function ensureCorrectNetwork() {
+        const current = await getChainId();
+        if (current === CHAIN_ID_DEC) return current;
+
+        log(`当前网络 chainId=${current}，需要切换到 97。尝试自动切换…`);
+        try {
+          await window.ethereum.request({
+            method: "wallet_switchEthereumChain",
+            params: [{ chainId: CHAIN_ID_HEX }],
+          });
+        } catch (e) {
+          if (e?.code === 4902) {
+            await window.ethereum.request({
+              method: "wallet_addEthereumChain",
+              params: [CHAIN_PARAMS],
+            });
+          } else {
+            throw e;
+          }
+        }
+
+        const after = await getChainId();
+        if (after !== CHAIN_ID_DEC) throw new Error("切换网络失败：请在钱包里手动切到 BNB Testnet（97）。");
+        return after;
+      }
+
+      async function connect() {
+        await ensureWallet();
+        setBusy(true);
+        try {
+          await provider.send("eth_requestAccounts", []);
+          const chainId = await ensureCorrectNetwork();
+          signer = await provider.getSigner();
+          const account = await signer.getAddress();
+          contract = new ethers.Contract(CONTRACT, ABI, signer);
+
+          updateBadges(chainId, account);
+          showToast("已连接钱包 ✅");
+          log("Connected:", account, "chainId=", chainId);
+
+          await readX();
+          startEventWatch();
+        } finally {
+          setBusy(false);
+        }
+      }
+
+      async function readX() {
+        if (!contract) return log("请先 Connect Wallet");
+        const v = await contract.x();
+        xVal.textContent = v.toString();
+        log("x =", v.toString());
+        return v;
+      }
+
+      // ========= Tx state machine =========
+      async function sendTx(label, txPromiseFactory) {
+        if (!contract) return log("请先 Connect Wallet");
+
+        setBusy(true);
+        setSpinner(true, `${label} 正在提交…`);
+        try {
+          showToast(`${label}：请在钱包确认`);
+          log(`[pending] ${label}：等待钱包确认…`);
+
+          const tx = await txPromiseFactory(); // delay execution until clicked
+          const txUrl = `${EXPLORER_TX}${tx.hash}`;
+
+          log(`[pending] tx: ${tx.hash}`);
+          log(`→ explorer: ${txUrl}`);
+          showToast(`${label}：已提交，等待确认…`);
+          setSpinner(true, `${label} 等待链上确认…`);
+
+          const receipt = await tx.wait();
+          log(`[confirmed] block: ${receipt.blockNumber}`);
+          showToast(`${label}：成功 ✅`);
+
+          await readX();
+        } catch (e) {
+          const msg = prettyError(e);
+          log(`[failed] ${label}：${msg}`);
+          showToast(`${label}：失败 ❌`, 3200);
+        } finally {
+          setSpinner(false);
+          setBusy(false);
+        }
+      }
+
+      // ========= Event watch (auto refresh) =========
+      let eventWatching = false;
+
+      function startEventWatch() {
+        if (!contract || eventWatching) return;
+        eventWatching = true;
+
+        // others' tx will also refresh x
+        contract.on("Increment", async (by) => {
+          log(`[event] Increment by ${by.toString()}`);
+          await readX();
+        });
+
+        log("Event watch: ON (Increment)");
+      }
+
+      function stopEventWatch() {
+        if (!contract || !eventWatching) return;
+        contract.removeAllListeners("Increment");
+        eventWatching = false;
+        log("Event watch: OFF");
+      }
+
+      // ========= Button bindings =========
+      document.getElementById("connect").onclick = async () => {
+        try { await connect(); } catch (e) { log(prettyError(e)); showToast(prettyError(e), 3200); }
+      };
+
+      document.getElementById("switchNet").onclick = async () => {
+        try {
+          await ensureWallet();
+          setBusy(true);
+          const chainId = await ensureCorrectNetwork();
+          // update badge even if not connected
+          let account = "-";
+          try {
+            const accounts = await provider.send("eth_accounts", []);
+            account = accounts?.[0] || "-";
+          } catch {}
+          updateBadges(chainId, account !== "-" ? account : null);
+          showToast("已切换到 BNB Testnet ✅");
+          log("Switched network to chainId=", chainId);
+        } catch (e) {
+          const msg = prettyError(e);
+          log(msg);
+          showToast(msg, 3200);
+        } finally {
+          setBusy(false);
+        }
+      };
+
+      document.getElementById("read").onclick = async () => {
+        try {
+          await ensureWallet();
+          setBusy(true);
+          const chainId = await getChainId();
+          let account = null;
+          try {
+            const accounts = await provider.send("eth_accounts", []);
+            account = accounts?.[0] || null;
+          } catch {}
+          updateBadges(chainId, account);
+
+          if (chainId !== CHAIN_ID_DEC) {
+            showToast("网络不对：请切到 BNB Testnet（97）", 3200);
+            log("Wrong network, chainId=", chainId);
+            return;
+          }
+          if (!contract && account) {
+            signer = await provider.getSigner();
+            contract = new ethers.Contract(CONTRACT, ABI, signer);
+          }
+          await readX();
+        } catch (e) {
+          const msg = prettyError(e);
+          log(msg);
+          showToast(msg, 3200);
+        } finally {
+          setBusy(false);
+        }
+      };
+
+      document.getElementById("inc").onclick = async () => {
+        await ensureWallet();
+        const chainId = await getChainId();
+        if (chainId !== CHAIN_ID_DEC) return showToast("请先切到 BNB Testnet（97）", 3200);
+        if (!contract) return showToast("请先 Connect Wallet", 2400);
+        await sendTx("inc()", () => contract.inc());
+      };
+
+      document.getElementById("incBy").onclick = async () => {
+        await ensureWallet();
+        const chainId = await getChainId();
+        if (chainId !== CHAIN_ID_DEC) return showToast("请先切到 BNB Testnet（97）", 3200);
+        if (!contract) return showToast("请先 Connect Wallet", 2400);
+
+        const by = BigInt(document.getElementById("by").value || "1");
+        if (by <= 0n) return showToast("by 必须 > 0", 2400);
+
+        await sendTx(`incBy(${by})`, () => contract.incBy(by));
+      };
+
+      document.getElementById("clearLog").onclick = () => {
+        logEl.textContent = "";
+        xVal.textContent = "-";
+        showToast("已清空日志");
+      };
+
+      // ========= On load: show status (even before connect) =========
+      (async () => {
+        log("frontend version: v2026-02-03-step7");
+        try {
+          if (!window.ethereum) {
+            updateBadges(null, null);
+            log("No wallet injected (window.ethereum missing)");
+            return;
+          }
+          await ensureWallet();
+          const chainId = await getChainId();
+          const accounts = await provider.send("eth_accounts", []);
+          updateBadges(chainId, accounts?.[0] || null);
+          if (chainId !== CHAIN_ID_DEC) log("Tip: click Switch to BNB Testnet");
+        } catch (e) {
+          log("init error:", prettyError(e));
+        }
+      })();
+
+      // ========= Wallet events =========
+      if (window.ethereum?.on) {
+        window.ethereum.on("chainChanged", async () => {
+          try {
+            await ensureWallet();
+            const chainId = await getChainId();
+            const accounts = await provider.send("eth_accounts", []);
+            updateBadges(chainId, accounts?.[0] || null);
+            stopEventWatch();
+            if (chainId === CHAIN_ID_DEC && accounts?.[0]) {
+              signer = await provider.getSigner();
+              contract = new ethers.Contract(CONTRACT, ABI, signer);
+              startEventWatch();
+              await readX();
+            }
+            log("chainChanged:", chainId);
+          } catch (e) {
+            log("chainChanged error:", prettyError(e));
+          }
+        });
+
+        window.ethereum.on("accountsChanged", async () => {
+          try {
+            await ensureWallet();
+            const chainId = await getChainId();
+            const accounts = await provider.send("eth_accounts", []);
+            updateBadges(chainId, accounts?.[0] || null);
+            stopEventWatch();
+            if (accounts?.[0]) {
+              signer = await provider.getSigner();
+              contract = new ethers.Contract(CONTRACT, ABI, signer);
+              startEventWatch();
+              if (chainId === CHAIN_ID_DEC) await readX();
+            }
+            log("accountsChanged:", accounts?.[0] || "-");
+          } catch (e) {
+            log("accountsChanged error:", prettyError(e));
+          }
+        });
+      }
+    </script>
+  </body>
+</html>

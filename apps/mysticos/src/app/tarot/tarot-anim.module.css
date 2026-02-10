@@ -1,0 +1,113 @@
+.container {
+  perspective: 1000px;
+  width: 100%;
+  max-width: 240px;
+  margin: 0 auto;
+}
+
+.cardWrapper {
+  position: relative;
+  width: 192px; /* 48 * 4px */
+  height: 288px; /* 72 * 4px */
+  transform-style: preserve-3d;
+  transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.cardWrapper.reveal {
+  transform: rotateY(180deg);
+}
+
+.cardSide {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  border-radius: 1rem;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+.cardBack {
+  background: linear-gradient(135deg, #4c1d95 0%, #1e1b4b 100%);
+  border: 4px border-solid rgba(167, 139, 250, 0.3);
+}
+
+.cardFront {
+  background: linear-gradient(135deg, #7c3aed 0%, #4338ca 100%);
+  border: 4px border-solid rgba(167, 139, 250, 0.6);
+  transform: rotateY(180deg);
+}
+
+.pattern {
+  position: absolute;
+  inset: 0;
+  background-image: url('https://www.transparenttextures.com/patterns/cubes.png');
+  opacity: 0.2;
+}
+
+.shuffling {
+  animation: shuffle 0.5s ease-in-out infinite;
+}
+
+@keyframes shuffle {
+  0%, 100% { transform: translate(0, 0) rotate(0deg) scale(1); }
+  25% { transform: translate(-10px, 5px) rotate(-2deg) scale(0.98); }
+  75% { transform: translate(10px, -5px) rotate(2deg) scale(0.98); }
+}
+
+.drawing {
+  animation: draw 1s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes draw {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(0, -40px) scale(1.05) rotate(1deg); }
+  100% { transform: translate(0, -20px) scale(1.02); }
+}
+
+.particles {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.particle {
+  position: absolute;
+  background: white;
+  border-radius: 50%;
+  opacity: 0;
+  animation: twinkle 2s infinite;
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0; transform: scale(0.5); }
+  50% { opacity: 0.8; transform: scale(1.2); }
+}
+
+.glow {
+  position: absolute;
+  inset: -20px;
+  background: radial-gradient(circle, rgba(167, 139, 250, 0.3) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  pointer-events: none;
+}
+
+.glowActive {
+  opacity: 1;
+}
+
+.fadeIn {
+  animation: fadeIn 0.8s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}

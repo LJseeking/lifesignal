@@ -1,0 +1,7 @@
+{
+  "name": "listener",
+  "version": "1.0.0",
+  "scripts": { "start": "ts-node energyCharged.listener.ts" },
+  "dependencies": { "ethers": "^6.13.5", "better-sqlite3": "^12.6.2" },
+  "devDependencies": { "ts-node": "^10.9.2", "typescript": "^5.0.0", "@types/better-sqlite3": "^7.6.13" }
+}

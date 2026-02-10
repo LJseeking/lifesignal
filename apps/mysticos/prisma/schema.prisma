@@ -1,0 +1,58 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(uuid())
+  deviceId      String         @unique
+  createdAt     DateTime       @default(now())
+  profile       Profile?
+  dailyResults  DailyResult[]
+  energyAccount EnergyAccount?
+}
+
+model EnergyAccount {
+  id                   String   @id @default(uuid())
+  userId               String   @unique
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  energyLevel          Int      @default(50) // 0-100
+  lastChargedAt        DateTime?
+  lastDecayDate        String?  // YYYY-MM-DD，记录最后一次衰减的日期
+  updatedAt            DateTime @updatedAt
+}
+
+model Profile {
+  id                  String   @id @default(uuid())
+  userId              String   @unique
+  birthDate           String
+  birthTime           String?
+  birthTimePrecision  String   @default("unknown") // exact_shichen | approx_range | unknown
+  birthShichen        String?  // zi, chou, yin...
+  birthTimeRange      String?  // morning, afternoon...
+  birthPlace          String?
+  gender              String
+  focus               String
+  mbti                String?
+  bloodType           String?
+  updatedAt           DateTime @updatedAt
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model DailyResult {
+  id          String   @id @default(uuid())
+  userId      String
+  date        String
+  energyModel String
+  scenesJSON  String
+  tarotCard   String?
+  createdAt   DateTime @default(now())
+  aiInsights  String?
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+}

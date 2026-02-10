@@ -1,0 +1,30 @@
+{
+  "name": "backend",
+  "version": "0.3.0",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "pnpm prisma:generate && node --env-file=../.env -r ts-node/register src/index.ts",
+    "prisma:generate": "prisma generate",
+    "build": "pnpm prisma:generate && tsc",
+    "start": "node dist/index.js",
+    "migrate": "pnpm migrate:dev",
+    "migrate:dev": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy",
+    "seed": "node --env-file=../.env -r ts-node/register scripts/seed.ts",
+    "test:idempotency": "node --env-file=../.env -r ts-node/register scripts/test-idempotency.ts",
+    "smoke": "node --env-file=../.env -r ts-node/register scripts/smoke.ts",
+    "verify:v0_4": "node --env-file=../.env -r ts-node/register scripts/test-idempotency.ts && node --env-file=../.env -r ts-node/register scripts/test-post-events.ts && node --env-file=../.env -r ts-node/register scripts/test-adjustment.ts && node --env-file=../.env -r ts-node/register scripts/test-audit.ts"
+  },
+  "dependencies": {
+    "@fastify/cors": "^8.3.0",
+    "@prisma/client": "^5.0.0",
+    "fastify": "^4.21.0",
+    "jsonwebtoken": "^9.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.4.5",
+    "prisma": "^5.0.0",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.1.6"
+  }
+}
