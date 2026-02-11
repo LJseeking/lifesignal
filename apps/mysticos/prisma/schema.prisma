@@ -56,3 +56,19 @@ model DailyResult {
 
   @@unique([userId, date])
 }
+
+model Charge {
+  id           Int      @id @default(autoincrement())
+  txHash       String
+  logIndex     Int
+  blockNumber  Int
+  user         String   // Wallet address or User ID
+  tokenAmount  String
+  energyCredit String
+  timestamp    Int
+  createdAt    DateTime @default(now())
+
+  @@unique([txHash, logIndex])
+  @@index([user])
+  @@index([timestamp(sort: Desc)])
+}

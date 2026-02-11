@@ -1,50 +1,4 @@
-import path from 'path';
-
-// 数据库文件路径 (存储在项目根目录)
-const DB_PATH = process.env.VERCEL ? '/tmp/charges.sqlite' : path.join(process.cwd(), 'charges.sqlite');
-
-let dbInstance: any = null;
-
-try {
-  // 动态导入以避免构建时强制依赖 native bindings
-  const Database = require('better-sqlite3');
-  dbInstance = new Database(DB_PATH);
-  
-  // 初始化表结构
-  dbInstance.exec(`
-    CREATE TABLE IF NOT EXISTS charges (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      tx_hash TEXT NOT NULL,
-      log_index INTEGER NOT NULL,
-      block_number INTEGER NOT NULL,
-      user TEXT NOT NULL,
-      token_amount TEXT NOT NULL,
-      energy_credit TEXT NOT NULL,
-      timestamp INTEGER NOT NULL,
-      UNIQUE(tx_hash, log_index)
-    );
-    
-    CREATE INDEX IF NOT EXISTS idx_charges_user ON charges(user);
-    CREATE INDEX IF NOT EXISTS idx_charges_timestamp ON charges(timestamp DESC);
-    
-    -- 稳定性迁移：确保复合唯一索引存在 (防止旧版本只有 tx_hash 唯一)
-    CREATE UNIQUE INDEX IF NOT EXISTS charges_unique_tx_log ON charges(tx_hash, log_index);
-  `);
-} catch (error) {
-  console.warn("Failed to initialize SQLite database (likely in Vercel/Serverless environment). Using Mock DB.", error);
-  // Mock DB for read-only environments
-  dbInstance = {
-    prepare: () => ({
-      run: () => ({ changes: 0, lastInsertRowid: 0 }),
-      get: () => null,
-      all: () => []
-    }),
-    exec: () => {},
-    transaction: (fn: any) => fn,
-  };
-}
-
-const db = dbInstance;
+import { prisma } from '@/lib/prisma';
 
 export interface ChargeRecord {
   id?: number;
@@ -59,58 +13,66 @@ export interface ChargeRecord {
 
 export const chargeDb = {
   // 插入充能记录
-  insertCharge: (record: ChargeRecord) => {
-    const stmt = db.prepare(`
-      INSERT OR IGNORE INTO charges (tx_hash, log_index, block_number, user, token_amount, energy_credit, timestamp)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `);
-    return stmt.run(
-      record.tx_hash,
-      record.log_index,
-      record.block_number,
-      record.user,
-      record.token_amount,
-      record.energy_credit,
-      record.timestamp
-    );
+  insertCharge: async (record: ChargeRecord) => {
+    try {
+      return await prisma.charge.create({
+        data: {
+          txHash: record.tx_hash,
+          logIndex: record.log_index,
+          blockNumber: record.block_number,
+          user: record.user,
+          tokenAmount: record.token_amount,
+          energyCredit: record.energy_credit,
+          timestamp: record.timestamp
+        }
+      });
+    } catch (e: any) {
+      // 忽略唯一约束冲突 (P2002)
+      if (e.code === 'P2002') return null;
+      throw e;
+    }
   },
 
   // 获取所有记录 (带分页)
-  getCharges: (limit = 20, offset = 0, user?: string) => {
-    let query = 'SELECT * FROM charges';
-    const params: any[] = [];
+  getCharges: async (limit = 20, offset = 0, user?: string) => {
+    const where = user && user.trim() !== '' ? { user: user.toLowerCase() } : {};
+    
+    const charges = await prisma.charge.findMany({
+      where,
+      orderBy: [
+        { blockNumber: 'desc' },
+        { logIndex: 'desc' }
+      ],
+      take: limit,
+      skip: offset
+    });
 
-    if (user && user.trim() !== '') {
-      query += ' WHERE user = ?';
-      params.push(user.toLowerCase());
-    }
-
-    // 默认排序：按区块高度倒序，同一区块按日志索引倒序
-    query += ' ORDER BY block_number DESC, log_index DESC LIMIT ? OFFSET ?';
-    params.push(limit, offset);
-
-    return db.prepare(query).all(...params) as ChargeRecord[];
+    return charges.map(c => ({
+      id: c.id,
+      tx_hash: c.txHash,
+      log_index: c.logIndex,
+      block_number: c.blockNumber,
+      user: c.user,
+      token_amount: c.tokenAmount,
+      energy_credit: c.energyCredit,
+      timestamp: c.timestamp
+    }));
   },
 
   // 获取记录总数
-  getChargesCount: (user?: string) => {
-    let query = 'SELECT COUNT(*) as count FROM charges';
-    const params: any[] = [];
-
-    if (user && user.trim() !== '') {
-      query += ' WHERE user = ?';
-      params.push(user.toLowerCase());
-    }
-
-    const result = db.prepare(query).get(...params) as { count: number };
-    return result.count;
+  getChargesCount: async (user?: string) => {
+    const where = user && user.trim() !== '' ? { user: user.toLowerCase() } : {};
+    return await prisma.charge.count({ where });
   },
 
   // 获取最新同步到的区块号 (用于补录)
-  getLatestBlockNumber: () => {
-    const result = db.prepare('SELECT MAX(block_number) as lastBlock FROM charges').get() as { lastBlock: number | null };
-    return result.lastBlock || 0;
+  getLatestBlockNumber: async () => {
+    const result = await prisma.charge.findFirst({
+      orderBy: { blockNumber: 'desc' },
+      select: { blockNumber: true }
+    });
+    return result?.blockNumber || 0;
   }
 };
 
-export default db;
+export default chargeDb;
