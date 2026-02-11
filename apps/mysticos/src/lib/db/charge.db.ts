@@ -12,7 +12,6 @@ export interface ChargeRecord {
 }
 
 export const chargeDb = {
-  // 插入充能记录
   insertCharge: async (record: ChargeRecord) => {
     try {
       return await prisma.charge.create({
@@ -27,51 +26,57 @@ export const chargeDb = {
         }
       });
     } catch (e: any) {
-      // 忽略唯一约束冲突 (P2002)
       if (e.code === 'P2002') return null;
-      throw e;
+      console.warn("Failed to insert charge (DB Error), ignoring:", e);
+      return null;
     }
   },
 
-  // 获取所有记录 (带分页)
   getCharges: async (limit = 20, offset = 0, user?: string) => {
-    const where = user && user.trim() !== '' ? { user: user.toLowerCase() } : {};
-    
-    const charges = await prisma.charge.findMany({
-      where,
-      orderBy: [
-        { blockNumber: 'desc' },
-        { logIndex: 'desc' }
-      ],
-      take: limit,
-      skip: offset
-    });
+    try {
+      const where = user && user.trim() !== '' ? { user: user.toLowerCase() } : {};
+      const charges = await prisma.charge.findMany({
+        where,
+        orderBy: [{ blockNumber: 'desc' }, { logIndex: 'desc' }],
+        take: limit,
+        skip: offset
+      });
 
-    return charges.map(c => ({
-      id: c.id,
-      tx_hash: c.txHash,
-      log_index: c.logIndex,
-      block_number: c.blockNumber,
-      user: c.user,
-      token_amount: c.tokenAmount,
-      energy_credit: c.energyCredit,
-      timestamp: c.timestamp
-    }));
+      return charges.map(c => ({
+        id: c.id,
+        tx_hash: c.txHash,
+        log_index: c.logIndex,
+        block_number: c.blockNumber,
+        user: c.user,
+        token_amount: c.tokenAmount,
+        energy_credit: c.energyCredit,
+        timestamp: c.timestamp
+      }));
+    } catch (e) {
+      console.warn("Failed to get charges, returning empty list:", e);
+      return [];
+    }
   },
 
-  // 获取记录总数
   getChargesCount: async (user?: string) => {
-    const where = user && user.trim() !== '' ? { user: user.toLowerCase() } : {};
-    return await prisma.charge.count({ where });
+    try {
+      const where = user && user.trim() !== '' ? { user: user.toLowerCase() } : {};
+      return await prisma.charge.count({ where });
+    } catch (e) {
+      return 0;
+    }
   },
 
-  // 获取最新同步到的区块号 (用于补录)
   getLatestBlockNumber: async () => {
-    const result = await prisma.charge.findFirst({
-      orderBy: { blockNumber: 'desc' },
-      select: { blockNumber: true }
-    });
-    return result?.blockNumber || 0;
+    try {
+      const result = await prisma.charge.findFirst({
+        orderBy: { blockNumber: 'desc' },
+        select: { blockNumber: true }
+      });
+      return result?.blockNumber || 0;
+    } catch (e) {
+      return 0;
+    }
   }
 };
 

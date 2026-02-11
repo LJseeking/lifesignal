@@ -1,30 +1,58 @@
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient } from '@prisma/client';
 
-const globalForPrisma = global as unknown as { prisma: PrismaClient }
+const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
-// Safe initialization to prevent crash if DATABASE_URL is missing
-const createPrismaClient = () => {
-  try {
-    return new PrismaClient();
-  } catch (e) {
-    console.error("CRITICAL: Failed to initialize Prisma Client. Missing DATABASE_URL?", e);
-    // Return a Proxy that allows the app to boot but fails on query
-    return new Proxy({} as PrismaClient, {
-      get: (target, prop) => {
-        if (prop === '$connect' || prop === '$disconnect') return async () => {};
-        // If accessing a model (e.g. prisma.user), return a mock object with findUnique etc.
-        return new Proxy({}, {
-          get: (modelTarget, modelProp) => {
-            return async () => {
-              throw new Error(`Database not available. Action: ${String(prop)}.${String(modelProp)}`);
-            };
-          }
-        });
+// 简单的 Mock 实现，防止页面在无 DB 时崩溃
+const mockPrisma = {
+  user: {
+    findUnique: async () => null,
+    create: async () => ({ id: 'mock-user', deviceId: 'mock-device' }),
+    update: async () => ({}),
+  },
+  energyAccount: {
+    findUnique: async () => null,
+    create: async () => ({ energyLevel: 50 }),
+    update: async () => ({ energyLevel: 50 }),
+  },
+  dailyResult: {
+    findUnique: async () => null,
+    create: async () => ({ 
+      energyModel: '{}', 
+      scenesJSON: '{}',
+      aiInsights: '{}' 
+    }),
+    update: async () => ({}),
+    findMany: async () => [],
+  },
+  charge: {
+    create: async () => ({}),
+    findMany: async () => [],
+    count: async () => 0,
+    findFirst: async () => null,
+  },
+  profile: {
+    findUnique: async () => null,
+  },
+  $connect: async () => {},
+  $disconnect: async () => {},
+} as unknown as PrismaClient;
+
+export const prisma =
+  globalForPrisma.prisma ||
+  (() => {
+    try {
+      // 如果没有配置 DATABASE_URL，直接返回 Mock
+      if (!process.env.DATABASE_URL) {
+        console.warn('⚠️ DATABASE_URL not found. Using Mock Prisma Client.');
+        return mockPrisma;
       }
-    });
-  }
-};
-
-export const prisma = globalForPrisma.prisma || createPrismaClient();
+      return new PrismaClient({
+        log: ['query'],
+      });
+    } catch (e) {
+      console.error('Failed to initialize Prisma Client:', e);
+      return mockPrisma;
+    }
+  })();
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
