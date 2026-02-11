@@ -1,31 +1,50 @@
-import Database from 'better-sqlite3';
 import path from 'path';
 
 // 数据库文件路径 (存储在项目根目录)
 const DB_PATH = path.join(process.cwd(), 'charges.sqlite');
 
-const db = new Database(DB_PATH);
+let dbInstance: any = null;
 
-// 初始化表结构
-db.exec(`
-  CREATE TABLE IF NOT EXISTS charges (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    tx_hash TEXT NOT NULL,
-    log_index INTEGER NOT NULL,
-    block_number INTEGER NOT NULL,
-    user TEXT NOT NULL,
-    token_amount TEXT NOT NULL,
-    energy_credit TEXT NOT NULL,
-    timestamp INTEGER NOT NULL,
-    UNIQUE(tx_hash, log_index)
-  );
+try {
+  // 动态导入以避免构建时强制依赖 native bindings
+  const Database = require('better-sqlite3');
+  dbInstance = new Database(DB_PATH);
   
-  CREATE INDEX IF NOT EXISTS idx_charges_user ON charges(user);
-  CREATE INDEX IF NOT EXISTS idx_charges_timestamp ON charges(timestamp DESC);
-  
-  -- 稳定性迁移：确保复合唯一索引存在 (防止旧版本只有 tx_hash 唯一)
-  CREATE UNIQUE INDEX IF NOT EXISTS charges_unique_tx_log ON charges(tx_hash, log_index);
-`);
+  // 初始化表结构
+  dbInstance.exec(`
+    CREATE TABLE IF NOT EXISTS charges (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tx_hash TEXT NOT NULL,
+      log_index INTEGER NOT NULL,
+      block_number INTEGER NOT NULL,
+      user TEXT NOT NULL,
+      token_amount TEXT NOT NULL,
+      energy_credit TEXT NOT NULL,
+      timestamp INTEGER NOT NULL,
+      UNIQUE(tx_hash, log_index)
+    );
+    
+    CREATE INDEX IF NOT EXISTS idx_charges_user ON charges(user);
+    CREATE INDEX IF NOT EXISTS idx_charges_timestamp ON charges(timestamp DESC);
+    
+    -- 稳定性迁移：确保复合唯一索引存在 (防止旧版本只有 tx_hash 唯一)
+    CREATE UNIQUE INDEX IF NOT EXISTS charges_unique_tx_log ON charges(tx_hash, log_index);
+  `);
+} catch (error) {
+  console.warn("Failed to initialize SQLite database (likely in Vercel/Serverless environment). Using Mock DB.", error);
+  // Mock DB for read-only environments
+  dbInstance = {
+    prepare: () => ({
+      run: () => ({ changes: 0, lastInsertRowid: 0 }),
+      get: () => null,
+      all: () => []
+    }),
+    exec: () => {},
+    transaction: (fn: any) => fn,
+  };
+}
+
+const db = dbInstance;
 
 export interface ChargeRecord {
   id?: number;
