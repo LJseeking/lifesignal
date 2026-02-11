@@ -9,8 +9,8 @@ export async function GET(request: NextRequest) {
   const offset = parseInt(searchParams.get('offset') || '0');
 
   try {
-    const charges = chargeDb.getCharges(limit, offset, user);
-    const total = chargeDb.getChargesCount(user);
+    const charges = await chargeDb.getCharges(limit, offset, user);
+    const total = await chargeDb.getChargesCount(user);
 
     return NextResponse.json({
       success: true,
