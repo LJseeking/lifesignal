@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 import { redirect } from 'next/navigation';
 import { getDeviceId } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';

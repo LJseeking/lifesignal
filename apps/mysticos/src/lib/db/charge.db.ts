@@ -1,7 +1,7 @@
 import path from 'path';
 
 // 数据库文件路径 (存储在项目根目录)
-const DB_PATH = path.join(process.cwd(), 'charges.sqlite');
+const DB_PATH = process.env.VERCEL ? '/tmp/charges.sqlite' : path.join(process.cwd(), 'charges.sqlite');
 
 let dbInstance: any = null;
 
