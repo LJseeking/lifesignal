@@ -5,8 +5,10 @@ import { getDeviceId } from '@/lib/auth';
 import { ProfileData } from '@/lib/zod-schemas';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 
 export async function submitProfile(data: ProfileData) {
+  console.log('[Onboarding] submitProfile started');
   const deviceId = getDeviceId();
   if (!deviceId) return { success: false, error: "身份验证失败" };
 
@@ -25,7 +27,7 @@ export async function submitProfile(data: ProfileData) {
 
     if (!user) throw new Error("无法创建或查找用户");
 
-    console.log(`Upserting profile for user: ${user.id}...`);
+    console.log(`[Onboarding] Upserting profile for user: ${user.id}...`);
     await prisma.profile.upsert({
       where: { userId: user.id },
       update: data,
@@ -35,23 +37,24 @@ export async function submitProfile(data: ProfileData) {
       }
     });
     
-    // Success path: Set completion cookie regardless of DB state (for Vercel fallback)
+    // Success path: Set completion cookie
     cookies().set('profile_completed', '1', {
       maxAge: 60 * 60 * 24 * 365, // 1 year
       path: '/',
-      httpOnly: false, // Accessible to client JS if needed
+      httpOnly: false,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax'
     });
+    console.log('[Onboarding] DB Success: profile_completed set');
 
     revalidatePath('/');
-    return { success: true };
   } catch (e) {
-    console.error("Server Action Error (DB), using Cookie Fallback:", e);
+    console.error("[Onboarding] Server Action Error (DB), using Cookie Fallback:", e);
     
-    // Fallback: Store profile in Cookie so page.tsx can read it next time
+    // Fallback: Store profile in Cookie
     cookies().set('mock_profile', JSON.stringify(data), {
       maxAge: 60 * 60 * 24, // 1 day
+      path: '/',
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax'
@@ -65,7 +68,10 @@ export async function submitProfile(data: ProfileData) {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax'
     });
-    
-    return { success: true }; // Pretend success to user
+    console.log('[Onboarding] Fallback Success: mock_profile and profile_completed set');
   }
+
+  // A) 强制性跳转
+  console.log('[Onboarding] Redirecting to /tarot');
+  redirect('/tarot');
 }

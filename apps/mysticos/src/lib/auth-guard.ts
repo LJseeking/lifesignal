@@ -4,40 +4,29 @@ import { prisma } from '@/lib/prisma';
 import { getDeviceId } from '@/lib/auth';
 
 export async function checkProfileOrRedirect() {
-  const deviceId = getDeviceId();
+  const deviceId = getDeviceId(); // This already checks cookies
+  console.log(`[AuthGuard] Checking for deviceId: ${deviceId}`);
   
-  // 1. 如果没有 deviceId，直接跳转 onboarding (Middleware 应该已生成，如果这里还没有，说明异常)
-  if (!deviceId) redirect('/onboarding');
+  if (!deviceId) {
+    console.log('[AuthGuard] No deviceId, redirecting to onboarding');
+    redirect('/onboarding');
+  }
 
   const cookieStore = cookies();
   const profileCompleted = cookieStore.get('profile_completed')?.value === '1';
+  const mockProfileCookie = cookieStore.get('mock_profile');
+  const mockProfileExists = !!mockProfileCookie;
 
-  let user = null;
-  try {
-    user = await prisma.user.findUnique({
-      where: { deviceId },
-      include: { profile: true, energyAccount: true }
-    });
-  } catch (e) {
-    // 数据库连接失败，继续后续逻辑
-  }
+  console.log(`[AuthGuard] Cookies state: profile_completed=${profileCompleted}, mock_profile_exists=${mockProfileExists}`);
 
-  // 2. 如果数据库中有完整的用户资料，验证通过
-  if (user && user.profile) {
-    return user;
-  }
-
-  // 3. 如果数据库没有资料（或连接失败），但 Cookie 标记了 "profile_completed=1"
-  // 这说明用户刚刚在 Vercel 环境下完成了 Onboarding，但 DB 写入可能失败了（无 DB 模式）
-  // 此时我们构造一个 Mock User，放行访问
-  if (profileCompleted) {
-    const mockProfileCookie = cookieStore.get('mock_profile');
+  // B) 优先检查 Mock Profile (Vercel 环境优先)
+  if (profileCompleted && mockProfileExists) {
+    console.log('[AuthGuard] Vercel Fallback: Using mock profile from cookies');
     let mockProfile = { focus: 'career', birthDate: '2000-01-01' };
-    
-    if (mockProfileCookie) {
-      try {
-        mockProfile = JSON.parse(mockProfileCookie.value);
-      } catch (e) {}
+    try {
+      if (mockProfileCookie) mockProfile = JSON.parse(mockProfileCookie.value);
+    } catch (e) {
+      console.error('[AuthGuard] Failed to parse mock profile cookie', e);
     }
     
     return {
@@ -48,6 +37,23 @@ export async function checkProfileOrRedirect() {
     } as any;
   }
 
-  // 4. 既无数据库资料，又无 Cookie 标记，才强制跳转
+  // 其次检查数据库
+  let user = null;
+  try {
+    user = await prisma.user.findUnique({
+      where: { deviceId },
+      include: { profile: true, energyAccount: true }
+    });
+  } catch (e) {
+    console.error('[AuthGuard] DB Error:', e);
+  }
+
+  if (user && user.profile) {
+    console.log('[AuthGuard] DB Success: Found user profile');
+    return user;
+  }
+
+  // 既无 Mock 又无 DB，跳转
+  console.log('[AuthGuard] No profile found (DB or Mock), redirecting to onboarding');
   redirect('/onboarding');
 }
