@@ -4,58 +4,70 @@ import { computeEnergyState } from '@/lib/energy/service';
 import SpaceClient from './Client';
 import { getSpaceAdvice } from '@/lib/scenes/space';
 import { SpaceZone } from '@/lib/scenes/space/rules';
-import { generateUnifiedModel } from '@/lib/engine'; // Added import
+import { generateUnifiedModel } from '@/lib/engine';
+import { getAllScenes } from '@/lib/scenes/index';
+import { getRandomTarot } from '@/lib/engine/tarot';
+import { checkProfileOrRedirect } from '@/lib/auth-guard';
 
 export default async function SpacePage({
   searchParams,
 }: {
   searchParams: { zone?: string };
 }) {
-  const deviceId = getDeviceId();
-  if (!deviceId) redirect('/onboarding');
-
-  let user = null;
-  try {
-    user = await prisma.user.findUnique({
-      where: { deviceId },
-      include: { profile: true }
-    });
-  } catch (e) {
-    console.warn("DB Error in Space:", e);
-  }
-
-  // Mock User Fallback
-  if (!user) {
-    user = {
-      id: "mock-user-id",
-      deviceId,
-      profile: { focus: "wealth", mbti: "INTJ", birthTime: "12:00" }
-    } as any;
-  }
-
-  if (!user || !user.profile) redirect('/onboarding');
+  const user = await checkProfileOrRedirect();
 
   const today = format(new Date(), 'yyyy-MM-dd');
+  const seed = `${today}-${user.deviceId}`;
   
-  let daily = null;
-  try {
-    if (user.id !== "mock-user-id") {
-      daily = await prisma.dailyResult.findUnique({
-        where: { userId_date: { userId: user.id, date: today } }
-      });
-    }
-  } catch (e) {}
+  // 确保 energyAccount 存在
+  const account = user.energyAccount || { energyLevel: 50 };
+  const energyState = computeEnergyState(account.energyLevel);
+
+  let daily = await prisma.dailyResult.findUnique({
+    where: { userId_date: { userId: user.id, date: today } }
+  });
 
   if (!daily) {
-    // In-Place Generation Fallback
     try {
-      const model = generateUnifiedModel(user.profile as any, today, deviceId);
-      daily = {
-        energyModel: JSON.stringify(model)
-      } as any;
+      const model = generateUnifiedModel(user.profile as any, today, user.deviceId);
+      const tarot = getRandomTarot(seed, (user.profile as any).focus);
+      const scenes = getAllScenes(model, tarot.card, seed, energyState);
+      
+      if (user.id !== "mock-user-id") {
+        daily = await prisma.dailyResult.create({
+          data: {
+            userId: user.id,
+            date: today,
+            energyModel: JSON.stringify(model),
+            scenesJSON: JSON.stringify(scenes),
+            tarotCard: tarot.card,
+            aiInsights: JSON.stringify({
+              stateInterpreter: null,
+              personalizedSummary: null,
+              personalizedMahjong: null,
+              patternObserver: null
+            })
+          } as any
+        });
+      } else {
+        daily = {
+          id: "mock-daily-id",
+          userId: user.id,
+          date: today,
+          energyModel: JSON.stringify(model),
+          scenesJSON: JSON.stringify(scenes),
+          tarotCard: tarot.card,
+          aiInsights: JSON.stringify({
+            stateInterpreter: null,
+            personalizedSummary: null,
+            personalizedMahjong: null,
+            patternObserver: null
+          })
+        } as any;
+      }
     } catch (e) {
-       console.error("Failed to generate fallback daily in Space:", e);
-       redirect('/');
+      console.error("[SpacePage] Failed to generate fallback daily result:", e);
+      return <div className="p-8 text-center text-slate-500">今日数据生成中，请稍后刷新...</div>;
     }
   }
 

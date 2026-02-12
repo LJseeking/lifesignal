@@ -1,5 +1,3 @@
-import { getDeviceId } from '@/lib/auth';
-import { redirect } from 'next/navigation';
 import { ChevronLeft, Info, BatteryCharging, Zap, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { computeEnergyState, estimateRuntimeDays, EnergyState } from '@/lib/energy/service';
@@ -10,28 +8,8 @@ import { checkProfileOrRedirect } from '@/lib/auth-guard';
 export default async function EnergyPage() {
   const user = await checkProfileOrRedirect();
 
-  let user = null;
-  try {
-    user = await prisma.user.findUnique({
-      where: { deviceId },
-      include: { energyAccount: true }
-    });
-  } catch (e) {
-    console.warn("DB Error in Energy:", e);
-  }
-
-  // Mock User Fallback
-  if (!user) {
-    user = {
-      id: "mock-user-id",
-      deviceId,
-      energyAccount: { energyLevel: 50, lastUpdate: new Date() }
-    } as any;
-  }
-
-  if (!user) redirect('/onboarding'); // Should not happen with mock
-
-  const account = await getEnergyAccount(user.id);
+  // 如果是 Mock 用户，可能没有 energyAccount，需要兜底
+  const account = user.energyAccount || { energyLevel: 50 };
   const state = computeEnergyState(account.energyLevel);
   const runtimeDays = estimateRuntimeDays(account.energyLevel);
 
@@ -99,7 +77,7 @@ export default async function EnergyPage() {
             {[
               { label: '每日状态分析', icon: '🧠' },
               { label: '连续记忆维护', icon: '💾' },
-              { label: '模式识别计算', icon: '��' },
+              { label: '模式识别计算', icon: '📡' },
               { label: '关键时刻提醒', icon: '🎯' },
             ].map((item, i) => (
               <div key={i} className="flex items-center gap-3">

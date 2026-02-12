@@ -12,62 +12,59 @@ import { checkProfileOrRedirect } from '@/lib/auth-guard';
 export default async function MahjongPage() {
   const user = await checkProfileOrRedirect();
 
-  let user = null;
-  try {
-    user = await prisma.user.findUnique({
-      where: { deviceId },
-      include: { profile: true }
-    });
-  } catch (e) {
-    console.warn("DB Error in Mahjong:", e);
-  }
-
-  // Mock User Fallback
-  if (!user) {
-    user = {
-      id: "mock-user-id",
-      deviceId,
-      profile: { focus: "wealth", mbti: "INTJ", birthTime: "12:00" }
-    } as any;
-  }
-
-  if (!user || !user.profile) redirect('/onboarding');
-
-  const account = await getEnergyAccount(user.id);
+  // 确保 energyAccount 存在
+  const account = user.energyAccount || { energyLevel: 50 };
   const energyState = computeEnergyState(account.energyLevel);
 
   const today = format(new Date(), 'yyyy-MM-dd');
-  const seed = `${today}-${deviceId}`;
+  const seed = `${today}-${user.deviceId}`;
   
-  let daily = null;
-  try {
-    if (user.id !== "mock-user-id") {
-      daily = await prisma.dailyResult.findUnique({
-        where: { userId_date: { userId: user.id, date: today } }
-      });
-    }
-  } catch (e) {}
+  let daily = await prisma.dailyResult.findUnique({
+    where: { userId_date: { userId: user.id, date: today } }
+  });
 
   if (!daily) {
-     // In-Place Generation Fallback
-     try {
-       const model = generateUnifiedModel(user.profile as any, today, deviceId);
-       const tarotCard = "The Fool"; // Simplified fallback for scene generation
-       const scenes = getAllScenes(model, tarotCard, seed, energyState);
-       
-       daily = {
-         id: "mock-daily-id",
-         userId: user.id,
-         date: today,
-         energyModel: JSON.stringify(model),
-         scenesJSON: JSON.stringify(scenes),
-         tarotCard: tarotCard,
-         aiInsights: JSON.stringify({})
-       } as any;
-     } catch (e) {
-       console.error("Failed to generate fallback daily in Mahjong:", e);
-       redirect('/'); // Only redirect if generation completely fails
-     }
+    try {
+      const model = generateUnifiedModel(user.profile as any, today, user.deviceId);
+      const tarot = getRandomTarot(seed, (user.profile as any).focus);
+      const scenes = getAllScenes(model, tarot.card, seed, energyState);
+      
+      if (user.id !== "mock-user-id") {
+        daily = await prisma.dailyResult.create({
+          data: {
+            userId: user.id,
+            date: today,
+            energyModel: JSON.stringify(model),
+            scenesJSON: JSON.stringify(scenes),
+            tarotCard: tarot.card,
+            aiInsights: JSON.stringify({
+              stateInterpreter: null,
+              personalizedSummary: null,
+              personalizedMahjong: null,
+              patternObserver: null
+            })
+          } as any
+        });
+      } else {
+        daily = {
+          id: "mock-daily-id",
+          userId: user.id,
+          date: today,
+          energyModel: JSON.stringify(model),
+          scenesJSON: JSON.stringify(scenes),
+          tarotCard: tarot.card,
+          aiInsights: JSON.stringify({
+            stateInterpreter: null,
+            personalizedSummary: null,
+            personalizedMahjong: null,
+            patternObserver: null
+          })
+        } as any;
+      }
+    } catch (e) {
+      console.error("[MahjongPage] Failed to generate fallback daily result:", e);
+      return <div className="p-8 text-center text-slate-500">今日数据生成中，请稍后刷新...</div>;
+    }
   }
 
   let scenes: any = {};
@@ -77,7 +74,7 @@ export default async function MahjongPage() {
     console.error("Failed to parse scenesJSON", e);
   }
 
-  const aiInsights: AIInsights = (daily as any).aiInsights ? JSON.parse((daily as any).aiInsights) : {
+  const aiInsights = daily!.aiInsights ? JSON.parse(daily!.aiInsights) : {
     stateInterpreter: null,
     personalizedSummary: null,
     personalizedMahjong: null,

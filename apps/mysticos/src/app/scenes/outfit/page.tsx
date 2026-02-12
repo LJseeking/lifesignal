@@ -2,59 +2,67 @@ import { prisma } from '@/lib/prisma';
 import { format } from 'date-fns';
 import OutfitClient from './Client';
 import { getAllScenes } from '@/lib/scenes/index';
-import { generateUnifiedModel } from '@/lib/engine'; // Added import
-
-import { getEnergyAccount, computeEnergyState } from '@/lib/energy/service';
+import { generateUnifiedModel } from '@/lib/engine';
+import { getRandomTarot } from '@/lib/engine/tarot';
+import { computeEnergyState } from '@/lib/energy/service';
+import { checkProfileOrRedirect } from '@/lib/auth-guard';
 
 export default async function OutfitPage() {
   const user = await checkProfileOrRedirect();
 
-  let user = null;
-  try {
-    user = await prisma.user.findUnique({
-      where: { deviceId },
-      include: { profile: true }
-    });
-  } catch (e) {
-    console.warn("DB Error in Outfit:", e);
-  }
-
-  // Mock User Fallback
-  if (!user) {
-    user = {
-      id: "mock-user-id",
-      deviceId,
-      profile: { focus: "wealth", mbti: "INTJ", birthTime: "12:00" }
-    } as any;
-  }
-
-  if (!user || !user.profile) redirect('/onboarding');
-
-  const account = await getEnergyAccount(user.id);
+  // 确保 energyAccount 存在
+  const account = user.energyAccount || { energyLevel: 50 };
   const energyState = computeEnergyState(account.energyLevel);
 
   const today = format(new Date(), 'yyyy-MM-dd');
   const seed = `${today}-${user.deviceId}`;
+  
   let daily = await prisma.dailyResult.findUnique({
     where: { userId_date: { userId: user.id, date: today } }
   });
 
   // 如果 Outfit 页面发现没有 DailyResult，原地生成
   if (!daily) {
-    // In-Place Generation Fallback
     try {
-      const model = generateUnifiedModel(user.profile as any, today, deviceId);
-      const tarotCard = "The Fool";
-      const newScenes = getAllScenes(model, tarotCard, seed, energyState);
+      const model = generateUnifiedModel(user.profile as any, today, user.deviceId);
+      const tarot = getRandomTarot(seed, (user.profile as any).focus);
+      const scenes = getAllScenes(model, tarot.card, seed, energyState);
       
-      daily = {
-        scenesJSON: JSON.stringify(newScenes),
-        energyModel: JSON.stringify(model),
-        tarotCard: tarotCard
-      } as any;
+      if (user.id !== "mock-user-id") {
+        daily = await prisma.dailyResult.create({
+          data: {
+            userId: user.id,
+            date: today,
+            energyModel: JSON.stringify(model),
+            scenesJSON: JSON.stringify(scenes),
+            tarotCard: tarot.card,
+            aiInsights: JSON.stringify({
+              stateInterpreter: null,
+              personalizedSummary: null,
+              personalizedMahjong: null,
+              patternObserver: null
+            })
+          } as any
+        });
+      } else {
+        daily = {
+          id: "mock-daily-id",
+          userId: user.id,
+          date: today,
+          energyModel: JSON.stringify(model),
+          scenesJSON: JSON.stringify(scenes),
+          tarotCard: tarot.card,
+          aiInsights: JSON.stringify({
+            stateInterpreter: null,
+            personalizedSummary: null,
+            personalizedMahjong: null,
+            patternObserver: null
+          })
+        } as any;
+      }
     } catch (e) {
-      console.error("Failed to generate fallback daily in Outfit:", e);
-      redirect('/');
+      console.error("[OutfitPage] Failed to generate fallback daily result:", e);
+      return <div className="p-8 text-center text-slate-500">今日数据生成中，请稍后刷新...</div>;
     }
   }
   

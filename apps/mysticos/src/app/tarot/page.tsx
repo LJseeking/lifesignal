@@ -3,36 +3,14 @@ import { format } from 'date-fns';
 import { ChevronLeft, Moon } from 'lucide-react';
 import Link from 'next/link';
 import { getRandomTarot } from '@/lib/engine/tarot';
-import { getEnergyAccount, computeEnergyState } from '@/lib/energy/service';
+import { computeEnergyState } from '@/lib/energy/service';
 import { generateUnifiedModel } from '@/lib/engine';
 import { getAllScenes } from '@/lib/scenes/index';
 import TarotDrawClient from './TarotDrawClient';
 import { checkProfileOrRedirect } from '@/lib/auth-guard';
 
 export default async function TarotPage() {
-  const deviceId = getDeviceId();
-  if (!deviceId) redirect('/onboarding');
-
-  let user = null;
-  try {
-    user = await prisma.user.findUnique({
-      where: { deviceId },
-      include: { profile: true }
-    });
-  } catch (e) {
-    console.warn("DB Error in Tarot:", e);
-  }
-
-  // Fallback / Mock Logic
-  if (!user) {
-    user = {
-      id: "mock-user-id",
-      deviceId,
-      profile: { focus: "wealth", mbti: "INTJ", birthTime: "12:00" } // Ensure minimal profile
-    } as any;
-  }
-
-  if (!user || !user.profile) redirect('/onboarding');
+  const user = await checkProfileOrRedirect();
 
   const today = format(new Date(), 'yyyy-MM-dd');
   const seed = `${today}-${user.deviceId}`;
@@ -45,46 +23,47 @@ export default async function TarotPage() {
     where: { userId_date: { userId: user.id, date: today } }
   });
 
-  // Generate Daily if missing (In-Place Generation)
   if (!daily) {
     try {
-      const model = generateUnifiedModel(user.profile as any, today, deviceId);
+      const model = generateUnifiedModel(user.profile as any, today, user.deviceId);
       const tarot = getRandomTarot(seed, (user.profile as any).focus);
       const scenes = getAllScenes(model, tarot.card, seed, energyState);
       
-      // Attempt to save if real user
       if (user.id !== "mock-user-id") {
-        try {
-          daily = await prisma.dailyResult.create({
-            data: {
-              userId: user.id,
-              date: today,
-              energyModel: JSON.stringify(model),
-              scenesJSON: JSON.stringify(scenes),
-              tarotCard: tarot.card,
-              aiInsights: JSON.stringify({})
-            } as any
-          });
-        } catch (saveErr) {
-          console.warn("Failed to save daily result:", saveErr);
-        }
-      }
-      
-      // If save failed or mock user, use memory object
-      if (!daily) {
+        daily = await prisma.dailyResult.create({
+          data: {
+            userId: user.id,
+            date: today,
+            energyModel: JSON.stringify(model),
+            scenesJSON: JSON.stringify(scenes),
+            tarotCard: tarot.card,
+            aiInsights: JSON.stringify({
+              stateInterpreter: null,
+              personalizedSummary: null,
+              personalizedMahjong: null,
+              patternObserver: null
+            })
+          } as any
+        });
+      } else {
         daily = {
-          tarotCard: tarot.card,
+          id: "mock-daily-id",
+          userId: user.id,
+          date: today,
           energyModel: JSON.stringify(model),
-          scenesJSON: JSON.stringify(scenes)
+          scenesJSON: JSON.stringify(scenes),
+          tarotCard: tarot.card,
+          aiInsights: JSON.stringify({
+            stateInterpreter: null,
+            personalizedSummary: null,
+            personalizedMahjong: null,
+            patternObserver: null
+          })
         } as any;
       }
-    } catch (genErr) {
-      console.error("Generation failed:", genErr);
-      // Ultimate fallback
-      daily = {
-        tarotCard: "The Wheel of Fortune",
-        energyModel: JSON.stringify({ daily_volatility: { intensity: 0.5 } })
-      } as any;
+    } catch (e) {
+      console.error("[TarotPage] Failed to generate fallback daily result:", e);
+      return <div className="p-8 text-center text-white">今日数据生成中，请稍后刷新...</div>;
     }
   }
 
