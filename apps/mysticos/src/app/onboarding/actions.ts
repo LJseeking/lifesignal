@@ -26,7 +26,7 @@ export async function submitProfile(data: ProfileData) {
     if (!user) throw new Error("无法创建或查找用户");
 
     console.log(`Upserting profile for user: ${user.id}...`);
-    const updatedProfile = await prisma.profile.upsert({
+    await prisma.profile.upsert({
       where: { userId: user.id },
       update: data,
       create: {
@@ -34,16 +34,34 @@ export async function submitProfile(data: ProfileData) {
         ...data
       }
     });
-    console.log("Profile updated successfully:", updatedProfile.id);
+    
+    // Success path: Set completion cookie regardless of DB state (for Vercel fallback)
+    cookies().set('profile_completed', '1', {
+      maxAge: 60 * 60 * 24 * 365, // 1 year
+      path: '/',
+      httpOnly: false, // Accessible to client JS if needed
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax'
+    });
 
     revalidatePath('/');
     return { success: true };
   } catch (e) {
     console.error("Server Action Error (DB), using Cookie Fallback:", e);
+    
     // Fallback: Store profile in Cookie so page.tsx can read it next time
     cookies().set('mock_profile', JSON.stringify(data), {
       maxAge: 60 * 60 * 24, // 1 day
       httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax'
+    });
+
+    // CRITICAL FIX: Even on DB error, mark as completed for Vercel
+    cookies().set('profile_completed', '1', {
+      maxAge: 60 * 60 * 24 * 365,
+      path: '/',
+      httpOnly: false,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax'
     });
