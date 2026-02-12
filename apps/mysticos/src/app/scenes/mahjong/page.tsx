@@ -1,6 +1,4 @@
 import { prisma } from '@/lib/prisma';
-import { getDeviceId } from '@/lib/auth';
-import { redirect } from 'next/navigation';
 import { format } from 'date-fns';
 import MahjongClient from './Client';
 import { generateUnifiedModel } from '@/lib/engine';
@@ -8,7 +6,7 @@ import { getAllScenes } from '@/lib/scenes/index';
 import { getRandomTarot } from '@/lib/engine/tarot';
 import { FEATURE_FLAG_AI, AIInsights } from '@/lib/ai';
 import { generatePersonalizedExplanation } from '@/lib/ai/interpreters';
-import { getEnergyAccount, computeEnergyState } from '@/lib/energy/service';
+import { computeEnergyState } from '@/lib/energy/service';
 import { checkProfileOrRedirect } from '@/lib/auth-guard';
 
 export default async function MahjongPage() {
@@ -70,7 +68,7 @@ export default async function MahjongPage() {
 
   let scenes: any = {};
   try {
-    scenes = JSON.parse(daily.scenesJSON);
+    scenes = JSON.parse(daily!.scenesJSON);
   } catch (e) {
     console.error("Failed to parse scenesJSON", e);
   }
@@ -84,8 +82,8 @@ export default async function MahjongPage() {
 
   let mahjong = scenes.mahjong || {};
   if (!mahjong.participation || energyState === 'dormant') {
-    const model = JSON.parse(daily.energyModel);
-    const newScenes = getAllScenes(model, daily.tarotCard || "未知", seed, energyState);
+    const model = JSON.parse(daily!.energyModel);
+    const newScenes = getAllScenes(model, daily!.tarotCard || "未知", seed, energyState);
     mahjong = newScenes.mahjong;
   }
 
@@ -99,7 +97,7 @@ export default async function MahjongPage() {
     try {
       if (user.id !== "mock-user-id") {
         await prisma.dailyResult.update({
-          where: { id: daily.id },
+          where: { id: daily!.id },
           data: { aiInsights: JSON.stringify(currentAIInsights) } as any
         });
       }

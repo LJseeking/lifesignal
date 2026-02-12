@@ -1,12 +1,10 @@
 import { prisma } from '@/lib/prisma';
-import { getDeviceId } from '@/lib/auth';
-import { redirect } from 'next/navigation';
 import { format } from 'date-fns';
 import OutfitClient from './Client';
 import { getAllScenes } from '@/lib/scenes/index';
 import { generateUnifiedModel } from '@/lib/engine';
 import { getRandomTarot } from '@/lib/engine/tarot';
-import { getEnergyAccount, computeEnergyState } from '@/lib/energy/service';
+import { computeEnergyState } from '@/lib/energy/service';
 import { checkProfileOrRedirect } from '@/lib/auth-guard';
 
 export default async function OutfitPage() {
@@ -69,15 +67,15 @@ export default async function OutfitPage() {
   
   let scenes: any = {};
   try {
-    scenes = JSON.parse(daily.scenesJSON);
+    scenes = JSON.parse(daily!.scenesJSON);
   } catch (e) {
     console.error("Failed to parse scenesJSON", e);
   }
 
   let outfit = scenes.outfit || {};
   if (!outfit.recommendedColors || energyState === 'dormant') {
-    const model = JSON.parse(daily.energyModel);
-    const newScenes = getAllScenes(model, daily.tarotCard || "未知", seed, energyState);
+    const model = JSON.parse(daily!.energyModel);
+    const newScenes = getAllScenes(model, daily!.tarotCard || "未知", seed, energyState);
     outfit = newScenes.outfit;
   }
 

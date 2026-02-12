@@ -1,15 +1,12 @@
 import { prisma } from '@/lib/prisma';
-import { getDeviceId } from '@/lib/auth';
-import { redirect } from 'next/navigation';
 import { format } from 'date-fns';
 import { ChevronLeft, Moon } from 'lucide-react';
 import Link from 'next/link';
 import { getRandomTarot } from '@/lib/engine/tarot';
-import { getEnergyAccount, computeEnergyState } from '@/lib/energy/service';
+import { computeEnergyState } from '@/lib/energy/service';
 import { generateUnifiedModel } from '@/lib/engine';
 import { getAllScenes } from '@/lib/scenes/index';
 import TarotDrawClient from './TarotDrawClient';
-import { cookies } from 'next/headers';
 import { checkProfileOrRedirect } from '@/lib/auth-guard';
 
 export default async function TarotPage() {
@@ -70,11 +67,11 @@ export default async function TarotPage() {
     }
   }
 
-  const model = JSON.parse(daily.energyModel);
+  const model = JSON.parse(daily!.energyModel);
   const tarotData = getRandomTarot(seed, (user.profile as any).focus);
 
   const result = {
-    card: daily.tarotCard || tarotData.card,
+    card: daily!.tarotCard || tarotData.card,
     focusAdvice: tarotData.focusAdvice,
     whyThisCard: `该结果结合了您当前对「${(user.profile as any).focus === 'wealth' ? '财富' : (user.profile as any).focus === 'love' ? '情感' : '事业'}」的关注，以及当日能量场 ${model.daily_volatility.intensity > 0.6 ? '显著波动' : '相对稳定'} 的频率特征生成。`
   };

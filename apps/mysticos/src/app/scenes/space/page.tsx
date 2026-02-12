@@ -1,8 +1,6 @@
 import { prisma } from '@/lib/prisma';
-import { getDeviceId } from '@/lib/auth';
-import { redirect } from 'next/navigation';
 import { format } from 'date-fns';
-import { getEnergyAccount, computeEnergyState } from '@/lib/energy/service';
+import { computeEnergyState } from '@/lib/energy/service';
 import SpaceClient from './Client';
 import { getSpaceAdvice } from '@/lib/scenes/space';
 import { SpaceZone } from '@/lib/scenes/space/rules';
@@ -73,7 +71,7 @@ export default async function SpacePage({
     }
   }
 
-  const model = JSON.parse(daily.energyModel);
+  const model = JSON.parse(daily!.energyModel);
   const zone = (searchParams.zone || 'work') as SpaceZone;
   const advice = getSpaceAdvice(model, zone, energyState);
 

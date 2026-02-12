@@ -1,9 +1,8 @@
-import { prisma } from '@/lib/prisma';
 import { getDeviceId } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { ChevronLeft, Info, BatteryCharging, Zap, Clock } from 'lucide-react';
 import Link from 'next/link';
-import { getEnergyAccount, computeEnergyState, estimateRuntimeDays, EnergyState } from '@/lib/energy/service';
+import { computeEnergyState, estimateRuntimeDays, EnergyState } from '@/lib/energy/service';
 import { EnergyBar } from '@/components/energy/EnergyBar';
 import { ChargeOptions } from '@/components/energy/ChargeOptions';
 import { checkProfileOrRedirect } from '@/lib/auth-guard';
@@ -79,8 +78,8 @@ export default async function EnergyPage() {
           <div className="grid grid-cols-2 gap-y-6 gap-x-4">
             {[
               { label: '每日状态分析', icon: '🧠' },
-              { label: '连续记忆维护', icon: '��' },
-              { label: '模式识别计算', icon: '📡' },
+              { label: '连续记忆维护', icon: '💾' },
+              { label: '模式识别计算', icon: '��' },
               { label: '关键时刻提醒', icon: '🎯' },
             ].map((item, i) => (
               <div key={i} className="flex items-center gap-3">
