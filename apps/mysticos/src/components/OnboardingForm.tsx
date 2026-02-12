@@ -29,6 +29,7 @@ const TIME_RANGES = [
 ];
 
 export function OnboardingForm() {
+  const router = useRouter();
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -63,10 +64,28 @@ export function OnboardingForm() {
       return;
     }
 
-    // 调用 Server Action，它会负责 redirect
-    await submitProfile(result.data);
-    // 如果 redirect 生效，下面代码不会执行；如果没生效，手动兜底
-    setTimeout(() => { window.location.href = '/tarot'; }, 1000);
+    try {
+      // 调用 Server Action，不再期待其 redirect
+      const res = await submitProfile(result.data);
+      
+      // 只要不报错，或者 res.ok，就认为成功
+      console.log("[OnboardingForm] Action returned:", res);
+      
+      // 客户端强制跳转到首页
+      console.log("[OnboardingForm] Navigating to /...");
+      router.replace('/');
+      
+      // 双重保险：50ms 后直接 location.assign
+      setTimeout(() => {
+        console.log("[OnboardingForm] Fallback location assign to /");
+        window.location.assign('/');
+      }, 50);
+
+    } catch (e) {
+      console.error("[OnboardingForm] Action failed:", e);
+      setErrors({ form: "提交失败，请重试或直接点击下方链接进入。" });
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -220,8 +239,8 @@ export function OnboardingForm() {
       </form>
 
       <div className="flex gap-4 justify-center mt-8">
-        <a href="/tarot" className="text-xs text-indigo-400 font-bold underline">
-          如果未自动跳转，点此进入塔罗
+        <a href="/" className="text-xs text-indigo-400 font-bold underline">
+          如果未自动跳转，点此进入首页
         </a>
       </div>
     </div>

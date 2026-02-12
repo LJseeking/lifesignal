@@ -60,7 +60,6 @@ export async function submitProfile(data: ProfileData) {
       sameSite: 'lax'
     });
 
-    // CRITICAL FIX: Even on DB error, mark as completed for Vercel
     cookies().set('profile_completed', '1', {
       maxAge: 60 * 60 * 24 * 365,
       path: '/',
@@ -71,7 +70,7 @@ export async function submitProfile(data: ProfileData) {
     console.log('[Onboarding] Fallback Success: mock_profile and profile_completed set');
   }
 
-  // A) 强制性跳转
-  console.log('[Onboarding] Redirecting to /tarot');
-  redirect('/tarot');
+  // A) 不再使用 redirect，返回成功标志由客户端处理
+  console.log('[Onboarding] Action completed, returning success');
+  return { ok: true };
 }
