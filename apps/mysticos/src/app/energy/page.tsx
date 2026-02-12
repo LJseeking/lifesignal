@@ -10,8 +10,28 @@ import { checkProfileOrRedirect } from '@/lib/auth-guard';
 export default async function EnergyPage() {
   const user = await checkProfileOrRedirect();
 
-  // 如果是 Mock 用户，可能没有 energyAccount，需要兜底
-  const account = user.energyAccount || { energyLevel: 50 };
+  let user = null;
+  try {
+    user = await prisma.user.findUnique({
+      where: { deviceId },
+      include: { energyAccount: true }
+    });
+  } catch (e) {
+    console.warn("DB Error in Energy:", e);
+  }
+
+  // Mock User Fallback
+  if (!user) {
+    user = {
+      id: "mock-user-id",
+      deviceId,
+      energyAccount: { energyLevel: 50, lastUpdate: new Date() }
+    } as any;
+  }
+
+  if (!user) redirect('/onboarding'); // Should not happen with mock
+
+  const account = await getEnergyAccount(user.id);
   const state = computeEnergyState(account.energyLevel);
   const runtimeDays = estimateRuntimeDays(account.energyLevel);
 
