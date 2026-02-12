@@ -10,55 +10,16 @@ import { generateUnifiedModel } from '@/lib/engine';
 import { getAllScenes } from '@/lib/scenes/index';
 import TarotDrawClient from './TarotDrawClient';
 import { cookies } from 'next/headers';
+import { checkProfileOrRedirect } from '@/lib/auth-guard';
 
 export default async function TarotPage() {
-  const deviceId = getDeviceId();
-  const cookieStore = cookies();
-  const profileCompleted = cookieStore.get('profile_completed')?.value === '1';
-
-  if (!deviceId) redirect('/onboarding');
-
-  let user = null;
-  try {
-    user = await prisma.user.findUnique({
-      where: { deviceId },
-      include: { profile: true }
-    });
-  } catch (e) {}
-
-  // Fallback: Cookie says completed but DB failed/empty
-  if (!user && profileCompleted) {
-    const mockProfileCookie = cookieStore.get('mock_profile');
-    if (mockProfileCookie) {
-      try {
-        const mockProfile = JSON.parse(mockProfileCookie.value);
-        user = {
-          id: "mock-user-id",
-          deviceId: deviceId,
-          profile: mockProfile,
-          energyAccount: { energyLevel: 50 }
-        } as any;
-      } catch (e) {}
-    } else {
-      // Minimal mock if even mock_profile is missing but completed flag exists
-      user = {
-        id: "mock-user-id",
-        deviceId: deviceId,
-        profile: { focus: 'career', birthDate: '2000-01-01' },
-        energyAccount: { energyLevel: 50 }
-      } as any;
-    }
-  }
-
-  // Guard: Redirect only if absolutely no user data found AND not marked as completed
-  if ((!user || !user.profile) && !profileCompleted) {
-    redirect('/onboarding');
-  }
+  const user = await checkProfileOrRedirect();
 
   const today = format(new Date(), 'yyyy-MM-dd');
-  const seed = `${today}-${deviceId}`;
+  const seed = `${today}-${user.deviceId}`;
   
-  const account = await getEnergyAccount(user.id);
+  // 确保 energyAccount 存在
+  const account = user.energyAccount || { energyLevel: 50 };
   const energyState = computeEnergyState(account.energyLevel);
 
   let daily = await prisma.dailyResult.findUnique({
@@ -67,7 +28,7 @@ export default async function TarotPage() {
 
   if (!daily) {
     try {
-      const model = generateUnifiedModel(user.profile as any, today, deviceId);
+      const model = generateUnifiedModel(user.profile as any, today, user.deviceId);
       const tarot = getRandomTarot(seed, (user.profile as any).focus);
       const scenes = getAllScenes(model, tarot.card, seed, energyState);
       
@@ -105,7 +66,6 @@ export default async function TarotPage() {
       }
     } catch (e) {
       console.error("[TarotPage] Failed to generate fallback daily result:", e);
-      // Don't redirect, show error state instead
       return <div className="p-8 text-center text-white">今日数据生成中，请稍后刷新...</div>;
     }
   }

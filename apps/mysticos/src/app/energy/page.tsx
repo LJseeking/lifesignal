@@ -6,19 +6,13 @@ import Link from 'next/link';
 import { getEnergyAccount, computeEnergyState, estimateRuntimeDays, EnergyState } from '@/lib/energy/service';
 import { EnergyBar } from '@/components/energy/EnergyBar';
 import { ChargeOptions } from '@/components/energy/ChargeOptions';
+import { checkProfileOrRedirect } from '@/lib/auth-guard';
 
 export default async function EnergyPage() {
-  const deviceId = getDeviceId();
-  if (!deviceId) redirect('/onboarding');
+  const user = await checkProfileOrRedirect();
 
-  const user = await prisma.user.findUnique({
-    where: { deviceId },
-    include: { energyAccount: true }
-  });
-
-  if (!user) redirect('/onboarding');
-
-  const account = await getEnergyAccount(user.id);
+  // 如果是 Mock 用户，可能没有 energyAccount，需要兜底
+  const account = user.energyAccount || { energyLevel: 50 };
   const state = computeEnergyState(account.energyLevel);
   const runtimeDays = estimateRuntimeDays(account.energyLevel);
 
@@ -85,7 +79,7 @@ export default async function EnergyPage() {
           <div className="grid grid-cols-2 gap-y-6 gap-x-4">
             {[
               { label: '每日状态分析', icon: '🧠' },
-              { label: '连续记忆维护', icon: '💾' },
+              { label: '连续记忆维护', icon: '��' },
               { label: '模式识别计算', icon: '📡' },
               { label: '关键时刻提醒', icon: '🎯' },
             ].map((item, i) => (

@@ -9,39 +9,46 @@ import { getRandomTarot } from '@/lib/engine/tarot';
 import { FEATURE_FLAG_AI, AIInsights } from '@/lib/ai';
 import { generatePersonalizedExplanation } from '@/lib/ai/interpreters';
 import { getEnergyAccount, computeEnergyState } from '@/lib/energy/service';
+import { checkProfileOrRedirect } from '@/lib/auth-guard';
 
 export default async function MahjongPage() {
-  const deviceId = getDeviceId();
-  const isSubscribed = true; 
-  
-  if (!deviceId) redirect('/onboarding');
+  const user = await checkProfileOrRedirect();
 
-  const user = await prisma.user.findUnique({
-    where: { deviceId },
-    include: { profile: true }
-  });
-
-  if (!user || !user.profile) redirect('/onboarding');
-
-  const account = await getEnergyAccount(user.id);
+  // 确保 energyAccount 存在
+  const account = user.energyAccount || { energyLevel: 50 };
   const energyState = computeEnergyState(account.energyLevel);
 
   const today = format(new Date(), 'yyyy-MM-dd');
-  const seed = `${today}-${deviceId}`;
+  const seed = `${today}-${user.deviceId}`;
   let daily = await prisma.dailyResult.findUnique({
     where: { userId_date: { userId: user.id, date: today } }
   });
 
-  // 修复：如果 Mahjong 页面发现没有 DailyResult，原地生成
   if (!daily) {
-    console.log(`[MahjongPage] Daily result not found for ${user.id}, generating on the fly...`);
     try {
-      const model = generateUnifiedModel(user.profile as any, today, deviceId);
+      const model = generateUnifiedModel(user.profile as any, today, user.deviceId);
       const tarot = getRandomTarot(seed, (user.profile as any).focus);
       const scenes = getAllScenes(model, tarot.card, seed, energyState);
       
-      daily = await prisma.dailyResult.create({
-        data: {
+      if (user.id !== "mock-user-id") {
+        daily = await prisma.dailyResult.create({
+          data: {
+            userId: user.id,
+            date: today,
+            energyModel: JSON.stringify(model),
+            scenesJSON: JSON.stringify(scenes),
+            tarotCard: tarot.card,
+            aiInsights: JSON.stringify({
+              stateInterpreter: null,
+              personalizedSummary: null,
+              personalizedMahjong: null,
+              patternObserver: null
+            })
+          } as any
+        });
+      } else {
+        daily = {
+          id: "mock-daily-id",
           userId: user.id,
           date: today,
           energyModel: JSON.stringify(model),
@@ -53,11 +60,11 @@ export default async function MahjongPage() {
             personalizedMahjong: null,
             patternObserver: null
           })
-        } as any
-      });
+        } as any;
+      }
     } catch (e) {
       console.error("[MahjongPage] Failed to generate fallback daily result:", e);
-      redirect('/');
+      return <div className="p-8 text-center text-slate-500">今日数据生成中，请稍后刷新...</div>;
     }
   }
 
@@ -90,10 +97,12 @@ export default async function MahjongPage() {
       personalizedMahjong
     };
     try {
-      await prisma.dailyResult.update({
-        where: { id: daily.id },
-        data: { aiInsights: JSON.stringify(currentAIInsights) } as any
-      });
+      if (user.id !== "mock-user-id") {
+        await prisma.dailyResult.update({
+          where: { id: daily.id },
+          data: { aiInsights: JSON.stringify(currentAIInsights) } as any
+        });
+      }
     } catch (e) {
       console.warn("Failed to update AI insights for mahjong", e);
     }

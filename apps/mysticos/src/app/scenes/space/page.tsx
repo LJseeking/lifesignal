@@ -9,42 +9,51 @@ import { SpaceZone } from '@/lib/scenes/space/rules';
 import { generateUnifiedModel } from '@/lib/engine';
 import { getAllScenes } from '@/lib/scenes/index';
 import { getRandomTarot } from '@/lib/engine/tarot';
+import { checkProfileOrRedirect } from '@/lib/auth-guard';
 
 export default async function SpacePage({
   searchParams,
 }: {
   searchParams: { zone?: string };
 }) {
-  const deviceId = getDeviceId();
-  if (!deviceId) redirect('/onboarding');
-
-  const user = await prisma.user.findUnique({
-    where: { deviceId },
-    include: { profile: true }
-  });
-
-  if (!user || !user.profile) redirect('/onboarding');
+  const user = await checkProfileOrRedirect();
 
   const today = format(new Date(), 'yyyy-MM-dd');
-  const seed = `${today}-${deviceId}`;
+  const seed = `${today}-${user.deviceId}`;
   
-  const account = await getEnergyAccount(user.id);
+  // 确保 energyAccount 存在
+  const account = user.energyAccount || { energyLevel: 50 };
   const energyState = computeEnergyState(account.energyLevel);
 
   let daily = await prisma.dailyResult.findUnique({
     where: { userId_date: { userId: user.id, date: today } }
   });
 
-  // 修复：如果 Space 页面发现没有 DailyResult，原地生成
   if (!daily) {
-    console.log(`[SpacePage] Daily result not found for ${user.id}, generating on the fly...`);
     try {
-      const model = generateUnifiedModel(user.profile as any, today, deviceId);
+      const model = generateUnifiedModel(user.profile as any, today, user.deviceId);
       const tarot = getRandomTarot(seed, (user.profile as any).focus);
       const scenes = getAllScenes(model, tarot.card, seed, energyState);
       
-      daily = await prisma.dailyResult.create({
-        data: {
+      if (user.id !== "mock-user-id") {
+        daily = await prisma.dailyResult.create({
+          data: {
+            userId: user.id,
+            date: today,
+            energyModel: JSON.stringify(model),
+            scenesJSON: JSON.stringify(scenes),
+            tarotCard: tarot.card,
+            aiInsights: JSON.stringify({
+              stateInterpreter: null,
+              personalizedSummary: null,
+              personalizedMahjong: null,
+              patternObserver: null
+            })
+          } as any
+        });
+      } else {
+        daily = {
+          id: "mock-daily-id",
           userId: user.id,
           date: today,
           energyModel: JSON.stringify(model),
@@ -56,11 +65,11 @@ export default async function SpacePage({
             personalizedMahjong: null,
             patternObserver: null
           })
-        } as any
-      });
+        } as any;
+      }
     } catch (e) {
       console.error("[SpacePage] Failed to generate fallback daily result:", e);
-      redirect('/');
+      return <div className="p-8 text-center text-slate-500">今日数据生成中，请稍后刷新...</div>;
     }
   }
 
