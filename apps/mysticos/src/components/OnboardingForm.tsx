@@ -68,18 +68,23 @@ export function OnboardingForm() {
       // 调用 Server Action，不再期待其 redirect
       const res = await submitProfile(result.data);
       
-      // 只要不报错，或者 res.ok，就认为成功
       console.log("[OnboardingForm] Action returned:", res);
       
-      // 客户端强制跳转到首页
-      console.log("[OnboardingForm] Navigating to /...");
-      router.replace('/');
-      
-      // 双重保险：50ms 后直接 location.assign
-      setTimeout(() => {
-        console.log("[OnboardingForm] Fallback location assign to /");
-        window.location.assign('/');
-      }, 50);
+      if (res.ok) {
+        // 仅当明确成功且写入 Cookie 后才跳转
+        console.log("[OnboardingForm] Success! Navigating to /...");
+        router.replace('/');
+        
+        // 双重保险
+        setTimeout(() => {
+          console.log("[OnboardingForm] Fallback location assign to /");
+          window.location.assign('/');
+        }, 100);
+      } else {
+        console.error("[OnboardingForm] Action returned not ok", res);
+        setErrors({ form: "提交异常，请重试。" });
+        setIsSubmitting(false);
+      }
 
     } catch (e) {
       console.error("[OnboardingForm] Action failed:", e);
