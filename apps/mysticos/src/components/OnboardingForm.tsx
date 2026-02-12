@@ -232,16 +232,6 @@ export function OnboardingForm() {
           </div>
         ) : '查看我的今日建议'}
       </button>
-
-      <div className="text-center">
-        <button 
-          type="button"
-          onClick={() => window.location.href = '/'}
-          className="text-[10px] text-slate-300 font-bold uppercase tracking-widest hover:text-slate-500"
-        >
-          Skip to Debug
-        </button>
-      </div>
     </div>
   );
 }
