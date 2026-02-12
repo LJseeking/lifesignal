@@ -4,13 +4,12 @@ import { redirect } from 'next/navigation';
 import { format } from 'date-fns';
 import OutfitClient from './Client';
 import { getAllScenes } from '@/lib/scenes/index';
-
+import { generateUnifiedModel } from '@/lib/engine';
+import { getRandomTarot } from '@/lib/engine/tarot';
 import { getEnergyAccount, computeEnergyState } from '@/lib/energy/service';
 
 export default async function OutfitPage() {
   const deviceId = getDeviceId();
-  // 注意：在实际生产中，这里应该从 DB 或 Session 获取订阅状态
-  // 为了预览效果，我们假设已订阅（或者由上层 Home 组件控制访问）
   const isSubscribed = true; 
   
   if (!deviceId) redirect('/onboarding');
@@ -27,13 +26,39 @@ export default async function OutfitPage() {
 
   const today = format(new Date(), 'yyyy-MM-dd');
   const seed = `${today}-${deviceId}`;
-  const daily = await prisma.dailyResult.findUnique({
+  let daily = await prisma.dailyResult.findUnique({
     where: { userId_date: { userId: user.id, date: today } }
   });
 
-  if (!daily) redirect('/');
+  // 修复：如果 Outfit 页面发现没有 DailyResult，原地生成
+  if (!daily) {
+    console.log(`[OutfitPage] Daily result not found for ${user.id}, generating on the fly...`);
+    try {
+      const model = generateUnifiedModel(user.profile as any, today, deviceId);
+      const tarot = getRandomTarot(seed, (user.profile as any).focus);
+      const scenes = getAllScenes(model, tarot.card, seed, energyState);
+      
+      daily = await prisma.dailyResult.create({
+        data: {
+          userId: user.id,
+          date: today,
+          energyModel: JSON.stringify(model),
+          scenesJSON: JSON.stringify(scenes),
+          tarotCard: tarot.card,
+          aiInsights: JSON.stringify({
+            stateInterpreter: null,
+            personalizedSummary: null,
+            personalizedMahjong: null,
+            patternObserver: null
+          })
+        } as any
+      });
+    } catch (e) {
+      console.error("[OutfitPage] Failed to generate fallback daily result:", e);
+      redirect('/');
+    }
+  }
   
-  // 最小数据契约解析与兜底
   let scenes: any = {};
   try {
     scenes = JSON.parse(daily.scenesJSON);
@@ -41,7 +66,6 @@ export default async function OutfitPage() {
     console.error("Failed to parse scenesJSON", e);
   }
 
-  // 如果数据结构过旧（缺少 recommendedColors），实时重新生成并更新
   let outfit = scenes.outfit || {};
   if (!outfit.recommendedColors || energyState === 'dormant') {
     const model = JSON.parse(daily.energyModel);
