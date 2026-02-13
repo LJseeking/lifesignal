@@ -20,7 +20,7 @@ export async function checkProfileOrRedirect() {
   console.log(`[AuthGuard] Cookies state: profile_completed=${profileCompleted}, mock_profile_exists=${mockProfileExists}`);
 
   // B) 优先检查 Mock Profile (Vercel 环境优先)
-  if (profileCompleted && mockProfileExists) {
+  if (profileCompleted || mockProfileExists) { // Changed && to || to be more lenient
     console.log('[AuthGuard] Vercel Fallback: Using mock profile from cookies');
     let mockProfile = { focus: 'career', birthDate: '2000-01-01' };
     try {
