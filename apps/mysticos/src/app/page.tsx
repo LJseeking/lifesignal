@@ -73,6 +73,7 @@ function AIStateInsightSection({ insights, isDormant, userId, energyLevel, metad
 export default async function Home() {
   const deviceId = getDeviceId();
   const isSubscribed = true; // 临时设为 true 以便预览 Premium 效果
+  const debugHash = "HOME_OK_COMMIT_FIX_GUARD";
   
   if (!deviceId) {
     return (
@@ -205,6 +206,7 @@ export default async function Home() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 pb-20">
+      <div className="fixed top-0 w-full bg-green-500 text-white text-xs text-center z-[9999]">{debugHash}</div>
       {/* 🧠 模块 1 & 🔑 模块 2: 总结与关键词 */}
       <div className="bg-white px-6 pt-16 pb-10 border-b border-slate-100 shadow-sm">
         <div className="flex justify-between items-center mb-6">
