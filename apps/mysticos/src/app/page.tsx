@@ -57,7 +57,7 @@ export default async function Home() {
   }
 
   const buildSha = (process.env.VERCEL_GIT_COMMIT_SHA || '').slice(0, 8) || 'local';
-  const marker = `HOME_GUARD_BYPASS_OK_${buildSha}`;
+  const marker = `HOME_OK_COOKIE_FALLBACK_V1_${buildSha}`;
 
   const today = format(new Date(), 'yyyy-MM-dd');
   const seed = `${today}-${deviceId}`;
@@ -72,6 +72,7 @@ export default async function Home() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 pb-20">
+      <div>HOME_OK_COOKIE_FALLBACK_V1</div>
       <div>{marker}</div>
 
       <div className="bg-white px-6 pt-16 pb-10 border-b border-slate-100 shadow-sm">
