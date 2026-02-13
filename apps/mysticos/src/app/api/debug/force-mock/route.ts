@@ -2,18 +2,11 @@ import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
 export async function GET() {
-  // 仅在 NODE_ENV=production 或 vercel 环境下可用
-  const isProduction = process.env.NODE_ENV === 'production';
-  const isVercel = !!process.env.VERCEL;
-
-  if (!isProduction && !isVercel) {
-    return NextResponse.json({ error: 'Only available in production/vercel' }, { status: 403 });
-  }
-
+  // 生产/Vercel/本地开发 都允许使用 (为了兜底稳定性)
   const cookieStore = cookies();
   
   const options = {
-    secure: true,
+    secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax' as const,
     path: '/',
     httpOnly: true,
@@ -33,5 +26,5 @@ export async function GET() {
   cookieStore.set('mock_profile', JSON.stringify(mockProfile), options);
 
   // 3. 返回 JSON { ok: true }
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, method: 'force-mock-api' });
 }
