@@ -92,6 +92,7 @@ export default async function Home() {
   // 如果用户未填写画像，引导至 Onboarding
   if (!user || !user.profile) {
     console.log("[Home] Still no user/profile after mock check, redirecting to onboarding");
+    console.log("[Home] Still no user/profile after mock check, redirecting to onboarding");
     redirect('/onboarding');
   }
 
