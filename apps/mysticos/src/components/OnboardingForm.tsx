@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ProfileSchema } from '@/lib/zod-schemas';
-import { submitProfile } from '@/app/onboarding/actions';
 import { Clock, Info, Check } from 'lucide-react';
 
 const SHICHEN = [
@@ -68,8 +67,17 @@ export function OnboardingForm() {
 
     try {
       // 1. 先尝试 Server Action (DB Write)
-      console.log("[OnboardingForm] Calling submitProfile...");
-      await submitProfile(result.data);
+      console.log("[OnboardingForm] Calling profile API...");
+      const resp = await fetch('/api/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(result.data),
+      });
+
+      if (!resp.ok) {
+        const err = await resp.text().catch(() => '');
+        throw new Error('PROFILE_API_FAILED:' + resp.status + ':' + err);
+      }
       
       
       // 2. 跳转
