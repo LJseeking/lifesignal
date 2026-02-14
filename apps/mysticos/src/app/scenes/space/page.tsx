@@ -18,8 +18,7 @@ export default async function SpacePage({
 
   const today = format(new Date(), 'yyyy-MM-dd');
   const seed = `${today}-${user.deviceId}`;
-  
-  // 确保 energyAccount 存在
+
   const account = user.energyAccount || { energyLevel: 50 };
   const energyState = computeEnergyState(account.energyLevel);
 
@@ -32,26 +31,9 @@ export default async function SpacePage({
       const model = generateUnifiedModel(user.profile as any, today, user.deviceId);
       const tarot = getRandomTarot(seed, (user.profile as any).focus);
       const scenes = getAllScenes(model, tarot.card, seed, energyState);
-      
-      if (user.id !== "mock-user-id") {
-        daily = await prisma.dailyResult.create({
-          data: {
-            userId: user.id,
-            date: today,
-            energyModel: JSON.stringify(model),
-            scenesJSON: JSON.stringify(scenes),
-            tarotCard: tarot.card,
-            aiInsights: JSON.stringify({
-              stateInterpreter: null,
-              personalizedSummary: null,
-              personalizedMahjong: null,
-              patternObserver: null
-            })
-          } as any
-        });
-      } else {
-        daily = {
-          id: "mock-daily-id",
+
+      daily = await prisma.dailyResult.create({
+        data: {
           userId: user.id,
           date: today,
           energyModel: JSON.stringify(model),
@@ -63,10 +45,10 @@ export default async function SpacePage({
             personalizedMahjong: null,
             patternObserver: null
           })
-        } as any;
-      }
+        } as any
+      });
     } catch (e) {
-      console.error("[SpacePage] Failed to generate fallback daily result:", e);
+      console.error('[SpacePage] Failed to generate fallback daily result:', e);
       return <div className="p-8 text-center text-slate-500">今日数据生成中，请稍后刷新...</div>;
     }
   }
@@ -76,11 +58,6 @@ export default async function SpacePage({
   const advice = getSpaceAdvice(model, zone, energyState);
 
   return (
-    <SpaceClient 
-      userId={user.id}
-      initialData={advice}
-      energyState={energyState}
-      currentZone={zone}
-    />
+    <SpaceClient userId={user.id} initialData={advice} energyState={energyState} currentZone={zone} />
   );
 }

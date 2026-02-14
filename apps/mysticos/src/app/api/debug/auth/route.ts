@@ -1,43 +1,44 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import { cookies } from 'next/headers';
+import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
 
 export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   const cookieStore = cookies();
-  const deviceId = cookieStore.get('mysticos_device_id')?.value;
-  const profileCompleted = cookieStore.get('profile_completed')?.value;
-  const mockProfile = cookieStore.get('mock_profile')?.value;
+  const deviceId = cookieStore.get('mysticos_device_id')?.value || null;
 
-  let dbProfile = null;
-  let dbError = null;
+  const result: any = {
+    env: process.env.NODE_ENV,
+    vercel: process.env.VERCEL === '1',
+    cookies: {
+      deviceId,
+    },
+    db: {
+      connected: false,
+      profile_found: false,
+      user_id: null,
+      error: null
+    }
+  };
 
-  if (deviceId) {
-    try {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    result.db.connected = true;
+
+    if (deviceId) {
       const user = await prisma.user.findUnique({
         where: { deviceId },
         include: { profile: true }
       });
-      dbProfile = user?.profile || null;
-    } catch (e: any) {
-      dbError = e.message;
+      result.db.user_id = user?.id || null;
+      result.db.profile_found = !!user?.profile;
     }
+  } catch (e: any) {
+    result.db.error = String(e?.message || e);
   }
 
-  return NextResponse.json({
-    env: process.env.NODE_ENV,
-    vercel: process.env.VERCEL ? true : false,
-    cookies: {
-      deviceId: deviceId || null,
-      profile_completed: profileCompleted || null,
-      mock_profile_exists: !!mockProfile
-    },
-    db: {
-      connected: !dbError,
-      profile_found: !!dbProfile,
-      error: dbError
-    }
+  return NextResponse.json(result, {
+    headers: { 'Cache-Control': 'no-store' }
   });
 }

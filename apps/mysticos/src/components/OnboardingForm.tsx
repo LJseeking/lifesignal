@@ -67,19 +67,16 @@ export function OnboardingForm() {
     }
 
     try {
-      // 1. 先尝试 Server Action (DB Write + Cookie)
+      // 1. 先尝试 Server Action (DB Write)
       console.log("[OnboardingForm] Calling submitProfile...");
       await submitProfile(result.data);
       
-      // 2. 无论 Server Action 结果如何，强制调用同域 API 写 Cookie (Double Assurance)
-      console.log("[OnboardingForm] Calling force-mock API for cookie guarantee...");
-      await fetch('/api/debug/force-mock', { method: 'GET', cache: 'no-store' });
       
-      // 3. 跳转
+      // 2. 跳转
       console.log("[OnboardingForm] Success! Navigating to /...");
       router.replace('/');
       
-      // 4. 双重保险
+      // 3. 双重保险
       setTimeout(() => {
         console.log("[OnboardingForm] Fallback location assign to /");
         window.location.assign('/');
@@ -87,9 +84,8 @@ export function OnboardingForm() {
 
     } catch (e) {
       console.error("[OnboardingForm] Action failed:", e);
-      // 即便报错，也尝试写入 Cookie 并跳转 (Worst Case Fallback)
+      // 提交失败时回到首页（避免卡死在表单页）
       try {
-         await fetch('/api/debug/force-mock', { method: 'GET', cache: 'no-store' });
          window.location.assign('/');
       } catch (err) {
          setErrors({ form: "提交失败，请重试或直接点击下方链接进入。" });

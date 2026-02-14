@@ -14,8 +14,7 @@ export default async function TarotPage() {
 
   const today = format(new Date(), 'yyyy-MM-dd');
   const seed = `${today}-${user.deviceId}`;
-  
-  // 确保 energyAccount 存在
+
   const account = user.energyAccount || { energyLevel: 50 };
   const energyState = computeEnergyState(account.energyLevel);
 
@@ -28,26 +27,9 @@ export default async function TarotPage() {
       const model = generateUnifiedModel(user.profile as any, today, user.deviceId);
       const tarot = getRandomTarot(seed, (user.profile as any).focus);
       const scenes = getAllScenes(model, tarot.card, seed, energyState);
-      
-      if (user.id !== "mock-user-id") {
-        daily = await prisma.dailyResult.create({
-          data: {
-            userId: user.id,
-            date: today,
-            energyModel: JSON.stringify(model),
-            scenesJSON: JSON.stringify(scenes),
-            tarotCard: tarot.card,
-            aiInsights: JSON.stringify({
-              stateInterpreter: null,
-              personalizedSummary: null,
-              personalizedMahjong: null,
-              patternObserver: null
-            })
-          } as any
-        });
-      } else {
-        daily = {
-          id: "mock-daily-id",
+
+      daily = await prisma.dailyResult.create({
+        data: {
           userId: user.id,
           date: today,
           energyModel: JSON.stringify(model),
@@ -59,10 +41,10 @@ export default async function TarotPage() {
             personalizedMahjong: null,
             patternObserver: null
           })
-        } as any;
-      }
+        } as any
+      });
     } catch (e) {
-      console.error("[TarotPage] Failed to generate fallback daily result:", e);
+      console.error('[TarotPage] Failed to generate fallback daily result:', e);
       return <div className="p-8 text-center text-white">今日数据生成中，请稍后刷新...</div>;
     }
   }
@@ -78,11 +60,6 @@ export default async function TarotPage() {
 
   return (
     <div className="min-h-screen bg-slate-900 text-white pb-12 overflow-x-hidden relative">
-      {/* DEBUG HEADER */}
-      <div className="fixed top-0 left-0 w-full bg-red-600 text-white text-center py-2 z-[9999] font-bold shadow-lg">
-        🚧 DEBUG: TAROT PAGE ACTIVE 🚧
-      </div>
-
       <div className="px-6 py-8 max-w-lg mx-auto pt-16">
         <Link href="/" className="flex items-center text-slate-400 mb-8 hover:text-white transition-colors w-fit">
           <ChevronLeft className="w-5 h-5" />
@@ -99,13 +76,8 @@ export default async function TarotPage() {
           </div>
         </div>
 
-        <TarotDrawClient 
-          result={result} 
-          energyState={energyState}
-          energyLevel={account.energyLevel}
-          userId={user.id}
-        />
-        
+        <TarotDrawClient result={result} energyState={energyState} energyLevel={account.energyLevel} userId={user.id} />
+
         <div className="mt-16 text-center">
           <p className="text-[10px] text-slate-600 leading-relaxed px-10">
             塔罗启示基于潜意识映射模型生成，旨在提供行为风格参考，不构成任何确定性预测。
