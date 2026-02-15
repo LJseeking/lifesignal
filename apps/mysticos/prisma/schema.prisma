@@ -11,36 +11,36 @@ model User {
   id            String         @id @default(uuid())
   deviceId      String         @unique
   createdAt     DateTime       @default(now())
-  profile       Profile?
   dailyResults  DailyResult[]
   energyAccount EnergyAccount?
+  profile       Profile?
 }
 
 model EnergyAccount {
-  id                   String   @id @default(uuid())
-  userId               String   @unique
-  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  energyLevel          Int      @default(50) // 0-100
-  lastChargedAt        DateTime?
-  lastDecayDate        String?  // YYYY-MM-DD，记录最后一次衰减的日期
-  updatedAt            DateTime @updatedAt
+  id            String    @id @default(uuid())
+  userId        String    @unique
+  energyLevel   Int       @default(50)
+  lastChargedAt DateTime?
+  lastDecayDate String?
+  updatedAt     DateTime  @updatedAt
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Profile {
-  id                  String   @id @default(uuid())
-  userId              String   @unique
-  birthDate           String
-  birthTime           String?
-  birthTimePrecision  String   @default("unknown") // exact_shichen | approx_range | unknown
-  birthShichen        String?  // zi, chou, yin...
-  birthTimeRange      String?  // morning, afternoon...
-  birthPlace          String?
-  gender              String
-  focus               String
-  mbti                String?
-  bloodType           String?
-  updatedAt           DateTime @updatedAt
-  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                 String   @id @default(uuid())
+  userId             String   @unique
+  birthDate          String
+  birthTime          String?
+  birthTimePrecision String   @default("unknown")
+  birthShichen       String?
+  birthTimeRange     String?
+  birthPlace         String?
+  gender             String
+  focus              String
+  mbti               String?
+  bloodType          String?
+  updatedAt          DateTime @updatedAt
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model DailyResult {
@@ -62,7 +62,7 @@ model Charge {
   txHash       String
   logIndex     Int
   blockNumber  Int
-  user         String   // Wallet address or User ID
+  user         String
   tokenAmount  String
   energyCredit String
   timestamp    Int
