@@ -1,23 +1,46 @@
 #!/bin/bash
 set -euo pipefail
 
+# Define patterns
+FORBIDDEN_MIGRATE_CMD="\bprisma[[:space:]]+migrate\b"
+FORBIDDEN_MIGRATE_SUB="\b(migrate deploy|migrate dev|migrate reset)\b"
+REAL_DB_URL="postgres(ql)?://[^[:space:]]+@"
+
 echo "Running DB Policy Guard (pre-commit)..."
 
-# Only scan staged files under apps/mysticos, exclude policy/hook/markdown files
+# 1. Scan staged files under apps/mysticos (excluding markdown/policy scripts)
+# Using -z for safe filename handling
 git diff --cached --name-only -z --diff-filter=ACM -- apps/mysticos \
-| xargs -0 -I{} bash -c '
-  f="$1"
-  case "$f" in
-    *.md|apps/mysticos/scripts/db-guard.sh|apps/mysticos/scripts/verify-db.sh) exit 0 ;;
-  esac
-  if grep -nE "prisma migrate|migrate deploy|migrate dev|migrate reset|migrate status|migrate diff" "$f" 2>/dev/null; then
-    echo "❌ ERROR: prisma migrate command detected in staged file: $f"
-    exit 1
-  fi
-' _ {}
+| xargs -0 -I{} bash -c "
+  f=\"\$1\"
+  # Define patterns inside subshell
+  FORBIDDEN_MIGRATE_CMD=\"\bprisma[[:space:]]+migrate\b\"
+  FORBIDDEN_MIGRATE_SUB=\"\b(migrate deploy|migrate dev|migrate reset)\b\"
 
-# Block real DB URLs in staged diff (anywhere in repo)
-if git diff --cached | grep -nE "postgres(ql)?://[^[:space:]]+@"; then
+  case \"\$f\" in
+    # White list
+    apps/mysticos/scripts/db-guard.sh|apps/mysticos/scripts/verify-db.sh) exit 0 ;;
+    
+    # Markdown: Warning only
+    *.md)
+      if grep -E \"\$FORBIDDEN_MIGRATE_CMD|\$FORBIDDEN_MIGRATE_SUB\" \"\$f\" >/dev/null 2>&1; then
+        echo \"⚠️  WARNING: prisma migrate command detected in markdown file: \$f\"
+      fi
+      exit 0
+      ;;
+      
+    # Source code: Block
+    *)
+      if grep -E \"\$FORBIDDEN_MIGRATE_CMD|\$FORBIDDEN_MIGRATE_SUB\" \"\$f\" >/dev/null 2>&1; then
+        echo \"❌ ERROR: prisma migrate command detected in staged file: \$f\"
+        exit 1
+      fi
+      ;;
+  esac
+" _ {}
+
+# 2. Block real DB URLs in staged diff (Repo-wide)
+if git diff --cached | grep -E "$REAL_DB_URL" >/dev/null 2>&1; then
   echo "❌ ERROR: Real DATABASE_URL detected in commit diff."
   exit 1
 fi
