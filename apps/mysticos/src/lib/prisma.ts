@@ -1,58 +1,25 @@
 import { PrismaClient } from '@prisma/client';
 
-const globalForPrisma = global as unknown as { prisma: PrismaClient };
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
-// 简单的 Mock 实现，防止页面在无 DB 时崩溃
-const mockPrisma = {
-  user: {
-    findUnique: async () => null,
-    create: async () => ({ id: 'mock-user', deviceId: 'mock-device' }),
-    update: async () => ({}),
-  },
-  energyAccount: {
-    findUnique: async () => null,
-    create: async () => ({ energyLevel: 50 }),
-    update: async () => ({ energyLevel: 50 }),
-  },
-  dailyResult: {
-    findUnique: async () => null,
-    create: async () => ({ 
-      energyModel: '{}', 
-      scenesJSON: '{}',
-      aiInsights: '{}' 
-    }),
-    update: async () => ({}),
-    findMany: async () => [],
-  },
-  charge: {
-    create: async () => ({}),
-    findMany: async () => [],
-    count: async () => 0,
-    findFirst: async () => null,
-  },
-  profile: {
-    findUnique: async () => null,
-  },
-  $connect: async () => {},
-  $disconnect: async () => {},
-} as unknown as PrismaClient;
+const urlCandidates = [
+  process.env.DATABASE_URL,
+  process.env.POSTGRES_PRISMA_URL,
+  process.env.POSTGRES_URL,
+  process.env.POSTGRES_URL_NON_POOLING,
+  process.env.NEON_DATABASE_URL,
+].filter(Boolean) as string[];
 
-export const prisma =
-  globalForPrisma.prisma ||
-  (() => {
-    try {
-      // 如果没有配置 DATABASE_URL，直接返回 Mock
-      if (!process.env.DATABASE_URL) {
-        console.warn('⚠️ DATABASE_URL not found. Using Mock Prisma Client.');
-        return mockPrisma;
-      }
-      return new PrismaClient({
-        log: ['query'],
-      });
-    } catch (e) {
-      console.error('Failed to initialize Prisma Client:', e);
-      return mockPrisma;
-    }
-  })();
+if (!process.env.DATABASE_URL && urlCandidates[0]) {
+  process.env.DATABASE_URL = urlCandidates[0];
+}
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL_MISSING');
+}
+
+export const prisma = globalForPrisma.prisma ?? new PrismaClient();
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma;
+}

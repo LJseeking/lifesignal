@@ -58,28 +58,35 @@ export async function POST(req: Request) {
     birthPlace: null,
   };
 
-  await prisma.user.upsert({
-    where: { deviceId },
-    update: {
-      profile: {
-        upsert: {
-          update: profileData,
-          create: profileData,
+  try {
+    await prisma.user.upsert({
+      where: { deviceId },
+      update: {
+        profile: {
+          upsert: {
+            update: profileData,
+            create: profileData,
+          },
+        },
+        energyAccount: {
+          upsert: {
+            update: { energyLevel: 100 },
+            create: { energyLevel: 100 },
+          },
         },
       },
-      energyAccount: {
-        upsert: {
-          update: { energyLevel: 100 },
-          create: { energyLevel: 100 },
-        },
+      create: {
+        deviceId,
+        profile: { create: profileData },
+        energyAccount: { create: { energyLevel: 100 } },
       },
-    },
-    create: {
-      deviceId,
-      profile: { create: profileData },
-      energyAccount: { create: { energyLevel: 100 } },
-    },
-  });
+    });
+  } catch (e: any) {
+    return NextResponse.json(
+      { ok: false, error: 'DB_ERROR', detail: String(e?.message || e) },
+      { status: 500, headers: { 'Cache-Control': 'no-store' } }
+    );
+  }
 
   return NextResponse.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } });
 }
