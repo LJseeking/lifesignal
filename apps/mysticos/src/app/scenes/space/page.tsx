@@ -7,14 +7,14 @@ import { SpaceZone } from '@/lib/scenes/space/rules';
 import { generateUnifiedModel } from '@/lib/engine';
 import { getAllScenes } from '@/lib/scenes/index';
 import { getRandomTarot } from '@/lib/engine/tarot';
-import { checkProfileOrRedirect } from '@/lib/auth-guard';
+import { getUserWithProfileOrRedirect } from '@/lib/user';
 
 export default async function SpacePage({
   searchParams,
 }: {
   searchParams: { zone?: string };
 }) {
-  const user = await checkProfileOrRedirect();
+  const user = await getUserWithProfileOrRedirect();
 
   const today = format(new Date(), 'yyyy-MM-dd');
   const seed = `${today}-${user.deviceId}`;

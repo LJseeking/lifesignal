@@ -1,16 +1,32 @@
 'use server';
 
-import { prisma } from '@/lib/prisma';
-import { getDeviceId } from '@/lib/auth';
-import { ProfileData } from '@/lib/zod-schemas';
-import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 
-export async function submitProfile(data: ProfileData) {
-  const deviceId = getDeviceId();
-  if (!deviceId) {
-    throw new Error('NO_DEVICE_ID');
+import { prisma } from '@/lib/prisma';
+import { getOrCreateDeviceId } from '@/lib/device';
+import { ProfileSchema } from '@/lib/zod-schemas';
+
+export async function submitProfile(formData: FormData) {
+  const deviceId = getOrCreateDeviceId();
+
+  const parsed = ProfileSchema.safeParse({
+    birthDate: formData.get('birthDate'),
+    birthTime: formData.get('birthTime'),
+    birthTimePrecision: formData.get('birthTimePrecision'),
+    birthShichen: formData.get('birthShichen'),
+    birthTimeRange: formData.get('birthTimeRange'),
+    birthPlace: formData.get('birthPlace'),
+    gender: formData.get('gender'),
+    focus: formData.get('focus'),
+    mbti: formData.get('mbti'),
+    bloodType: formData.get('bloodType'),
+  });
+
+  if (!parsed.success) {
+    throw new Error('PROFILE_VALIDATION_ERROR');
   }
 
+  const data = parsed.data as any;
   const profileData = {
     birthDate: data.birthDate,
     gender: data.gender,
@@ -21,7 +37,7 @@ export async function submitProfile(data: ProfileData) {
     birthTimePrecision: data.birthTimePrecision || 'unknown',
     birthShichen: data.birthShichen || null,
     birthTimeRange: data.birthTimeRange || null,
-    birthPlace: (data as any).birthPlace || null,
+    birthPlace: data.birthPlace || null,
   };
 
   await prisma.user.upsert({
@@ -47,6 +63,5 @@ export async function submitProfile(data: ProfileData) {
     },
   });
 
-  revalidatePath('/');
-  return { ok: true };
+  redirect('/');
 }

@@ -3,10 +3,10 @@ import Link from 'next/link';
 import { computeEnergyState, estimateRuntimeDays, EnergyState } from '@/lib/energy/service';
 import { EnergyBar } from '@/components/energy/EnergyBar';
 import { ChargeOptions } from '@/components/energy/ChargeOptions';
-import { checkProfileOrRedirect } from '@/lib/auth-guard';
+import { getUserWithProfileOrRedirect } from '@/lib/user';
 
 export default async function EnergyPage() {
-  const user = await checkProfileOrRedirect();
+  const user = await getUserWithProfileOrRedirect();
 
   // 如果是 Mock 用户，可能没有 energyAccount，需要兜底
   const account = user.energyAccount || { energyLevel: 50 };

@@ -1,6 +1,6 @@
 export const runtime = 'nodejs';
 import { redirect } from 'next/navigation';
-import { getDeviceId } from '@/lib/auth';
+import { getDeviceId } from '@/lib/device';
 import { prisma } from '@/lib/prisma';
 import { format } from 'date-fns';
 import { generateUnifiedModel } from '@/lib/engine';
@@ -73,15 +73,7 @@ function AIStateInsightSection({ insights, isDormant, userId, energyLevel, metad
 export default async function Home() {
   const deviceId = getDeviceId();
   const isSubscribed = true; // 临时设为 true 以便预览 Premium 效果
-  
-  if (!deviceId) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-slate-50">
-        <AlertCircle className="w-12 h-12 text-slate-300 mb-4" />
-        <p className="text-slate-500 text-sm">正在初始化身份...</p>
-      </div>
-    );
-  }
+  if (!deviceId) redirect('/onboarding');
 
   const user = await prisma.user.findUnique({
     where: { deviceId },

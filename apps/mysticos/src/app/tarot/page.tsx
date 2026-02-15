@@ -7,10 +7,10 @@ import { computeEnergyState } from '@/lib/energy/service';
 import { generateUnifiedModel } from '@/lib/engine';
 import { getAllScenes } from '@/lib/scenes/index';
 import TarotDrawClient from './TarotDrawClient';
-import { checkProfileOrRedirect } from '@/lib/auth-guard';
+import { getUserWithProfileOrRedirect } from '@/lib/user';
 
 export default async function TarotPage() {
-  const user = await checkProfileOrRedirect();
+  const user = await getUserWithProfileOrRedirect();
 
   const today = format(new Date(), 'yyyy-MM-dd');
   const seed = `${today}-${user.deviceId}`;

@@ -7,10 +7,10 @@ import { getRandomTarot } from '@/lib/engine/tarot';
 import { FEATURE_FLAG_AI } from '@/lib/ai';
 import { generatePersonalizedExplanation } from '@/lib/ai/interpreters';
 import { computeEnergyState } from '@/lib/energy/service';
-import { checkProfileOrRedirect } from '@/lib/auth-guard';
+import { getUserWithProfileOrRedirect } from '@/lib/user';
 
 export default async function MahjongPage() {
-  const user = await checkProfileOrRedirect();
+  const user = await getUserWithProfileOrRedirect();
 
   const account = user.energyAccount || { energyLevel: 50 };
   const energyState = computeEnergyState(account.energyLevel);

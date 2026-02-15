@@ -5,10 +5,10 @@ import { getAllScenes } from '@/lib/scenes/index';
 import { generateUnifiedModel } from '@/lib/engine';
 import { getRandomTarot } from '@/lib/engine/tarot';
 import { computeEnergyState } from '@/lib/energy/service';
-import { checkProfileOrRedirect } from '@/lib/auth-guard';
+import { getUserWithProfileOrRedirect } from '@/lib/user';
 
 export default async function OutfitPage() {
-  const user = await checkProfileOrRedirect();
+  const user = await getUserWithProfileOrRedirect();
 
   const account = user.energyAccount || { energyLevel: 50 };
   const energyState = computeEnergyState(account.energyLevel);
