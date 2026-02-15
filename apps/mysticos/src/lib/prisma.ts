@@ -14,12 +14,20 @@ if (!process.env.DATABASE_URL && urlCandidates[0]) {
   process.env.DATABASE_URL = urlCandidates[0];
 }
 
-if (!process.env.DATABASE_URL) {
-  throw new Error('DATABASE_URL_MISSING');
-}
+const missingEnvPrisma = new Proxy(
+  {},
+  {
+    get() {
+      throw new Error('DATABASE_URL_MISSING');
+    },
+  }
+) as unknown as PrismaClient;
 
-export const prisma = globalForPrisma.prisma ?? new PrismaClient();
+export const prisma =
+  process.env.DATABASE_URL
+    ? globalForPrisma.prisma ?? new PrismaClient()
+    : missingEnvPrisma;
 
-if (process.env.NODE_ENV !== 'production') {
+if (process.env.NODE_ENV !== 'production' && process.env.DATABASE_URL) {
   globalForPrisma.prisma = prisma;
 }
