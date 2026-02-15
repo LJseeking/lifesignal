@@ -1,18 +1,14 @@
 import { redirect } from 'next/navigation';
 
 import { prisma } from '@/lib/prisma';
-import { getDeviceId } from '@/lib/device';
+import { getOrCreateDeviceId } from '@/lib/device';
 
 export async function getUserWithProfileOrRedirect(deviceIdArg?: string) {
-  const deviceId = deviceIdArg ?? getDeviceId();
-
-  if (!deviceId) {
-    redirect('/onboarding');
-  }
+  const deviceId = deviceIdArg ?? getOrCreateDeviceId();
 
   const user = await prisma.user.findUnique({
     where: { deviceId },
-    include: { profile: true, energyAccount: true }
+    include: { profile: true, energyAccount: true },
   });
 
   if (!user || !user.profile) {
