@@ -1,10 +1,11 @@
 {
   "name": "mysticos",
-  "version": "0.1.0",
+  "version": "0.1.0" trae-sandbox cat apps/mysticos/package.json
+,
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "pnpm exec prisma generate "build": "pnpm exec prisma generate && next build""build": "pnpm exec prisma generate && next build" pnpm exec prisma migrate deploy "build": "pnpm exec prisma generate && next build""build": "pnpm exec prisma generate && next build" next build",
+    "build": "pnpm exec prisma generate && pnpm exec prisma migrate deploy && next build",
     "start": "next start",
     "lint": "eslint . --max-warnings 0"
   },
