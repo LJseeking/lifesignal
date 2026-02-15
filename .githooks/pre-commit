@@ -1,48 +1,49 @@
 #!/bin/bash
-set -euo pipefail
+set -u
 
-# Define patterns
-FORBIDDEN_MIGRATE_CMD="\bprisma[[:space:]]+migrate\b"
-FORBIDDEN_MIGRATE_SUB="\b(migrate deploy|migrate dev|migrate reset)\b"
-REAL_DB_URL="postgres(ql)?://[^[:space:]]+@"
+# Regex patterns (POSIX ERE for BSD grep compatibility)
+PAT_MIGRATE='prisma[[:space:]]+migrate|migrate[[:space:]]+(deploy|dev|reset|status|diff)'
+
+# Construct URL pattern to avoid self-blocking in git diff
+PAT_URL_PROTO='postgres(ql)?://'
+PAT_URL="${PAT_URL_PROTO}[^[:space:]]+@"
 
 echo "Running DB Policy Guard (pre-commit)..."
 
-# 1. Scan staged files under apps/mysticos (excluding markdown/policy scripts)
-# Using -z for safe filename handling
-git diff --cached --name-only -z --diff-filter=ACM -- apps/mysticos \
-| xargs -0 -I{} bash -c "
-  f=\"\$1\"
-  # Define patterns inside subshell
-  FORBIDDEN_MIGRATE_CMD=\"\bprisma[[:space:]]+migrate\b\"
-  FORBIDDEN_MIGRATE_SUB=\"\b(migrate deploy|migrate dev|migrate reset)\b\"
+# Use a temp file to track failure
+FAIL_MARKER=$(mktemp)
 
-  case \"\$f\" in
-    # White list
-    apps/mysticos/scripts/db-guard.sh|apps/mysticos/scripts/verify-db.sh) exit 0 ;;
-    
-    # Markdown: Warning only
+# 1. Scan staged files under apps/mysticos
+git diff --cached --name-only -z --diff-filter=ACM -- apps/mysticos | \
+while IFS= read -r -d '' f; do
+  case "$f" in
+    apps/mysticos/scripts/db-guard.sh|apps/mysticos/scripts/verify-db.sh) continue ;;
     *.md)
-      if grep -E \"\$FORBIDDEN_MIGRATE_CMD|\$FORBIDDEN_MIGRATE_SUB\" \"\$f\" >/dev/null 2>&1; then
-        echo \"⚠️  WARNING: prisma migrate command detected in markdown file: \$f\"
+      if grep -E "$PAT_MIGRATE" "$f" >/dev/null 2>&1; then
+        echo "⚠️  WARNING: prisma migrate command detected in markdown file: $f"
       fi
-      exit 0
-      ;;
-      
-    # Source code: Block
+      continue ;;
     *)
-      if grep -E \"\$FORBIDDEN_MIGRATE_CMD|\$FORBIDDEN_MIGRATE_SUB\" \"\$f\" >/dev/null 2>&1; then
-        echo \"❌ ERROR: prisma migrate command detected in staged file: \$f\"
-        exit 1
+      if grep -E "$PAT_MIGRATE" "$f" >/dev/null 2>&1; then
+        echo "❌ ERROR: prisma migrate command detected in staged file: $f"
+        echo "   Policy: Use 'prisma db push' for development/deployment."
+        echo "fail" > "$FAIL_MARKER"
       fi
       ;;
   esac
-" _ {}
+done
 
-# 2. Block real DB URLs in staged diff (Repo-wide)
-if git diff --cached | grep -E "$REAL_DB_URL" >/dev/null 2>&1; then
+# 2. Repo-wide URL check
+if git diff --cached | grep -E "$PAT_URL" >/dev/null 2>&1; then
   echo "❌ ERROR: Real DATABASE_URL detected in commit diff."
+  echo "   Policy: Credentials must be in .env.local only."
+  echo "fail" > "$FAIL_MARKER"
+fi
+
+if [ -s "$FAIL_MARKER" ]; then
+  rm -f "$FAIL_MARKER"
   exit 1
 fi
 
+rm -f "$FAIL_MARKER"
 echo "✅ Pre-commit DB policy passed."
