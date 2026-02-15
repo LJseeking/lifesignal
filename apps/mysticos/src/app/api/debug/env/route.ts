@@ -6,7 +6,7 @@ export async function GET() {
   const hasDatabaseUrl = !!process.env.DATABASE_URL;
   const hasPostgresUrl = !!process.env.POSTGRES_URL;
   const hasPostgresPrismaUrl = !!process.env.POSTGRES_PRISMA_URL;
-  const hasNeonUrl = !!process.env.NEON_DATABASE_URL;
+  const hasNeonUrl = !!process.env.NEON_DATABASE_URL; let databaseUrlScheme = "unknown"; if (process.env.DATABASE_URL) { try { databaseUrlScheme = process.env.DATABASE_URL.split(":")[0]; } catch (e) { databaseUrlScheme = "error"; } }
 
   return NextResponse.json(
     {
@@ -16,7 +16,7 @@ export async function GET() {
         hasDatabaseUrl,
         hasPostgresUrl,
         hasPostgresPrismaUrl,
-        hasNeonUrl,
+        hasNeonUrl, databaseUrlScheme,
       },
     },
     { headers: { 'Cache-Control': 'no-store' } }
