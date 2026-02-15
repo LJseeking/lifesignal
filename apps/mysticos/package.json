@@ -1,6 +1,6 @@
 {
   "name": "mysticos",
-  "version": "0.1.0" trae-sandbox cat apps/mysticos/package.json
+  "version": "0.1.0"
 ,
   "private": true,
   "scripts": {
