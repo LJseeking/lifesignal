@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "pnpm exec prisma generate && next build",
+    "build": "pnpm exec prisma generate "build": "pnpm exec prisma generate && next build""build": "pnpm exec prisma generate && next build" pnpm exec prisma migrate deploy "build": "pnpm exec prisma generate && next build""build": "pnpm exec prisma generate && next build" next build",
     "start": "next start",
     "lint": "eslint . --max-warnings 0"
   },
