@@ -1,0 +1,25 @@
+#!/bin/bash
+set -euo pipefail
+
+echo "Running DB Policy Guard (pre-commit)..."
+
+# Only scan staged files under apps/mysticos, exclude policy/hook files
+git diff --cached --name-only -z --diff-filter=ACM -- apps/mysticos \
+| xargs -0 -I{} bash -c '
+  f="$1"
+  case "$f" in
+    apps/mysticos/scripts/db-guard.sh|apps/mysticos/scripts/verify-db.sh) exit 0 ;;
+  esac
+  if grep -nE "prisma migrate|migrate deploy|migrate dev|migrate reset|migrate status|migrate diff" "$f" 2>/dev/null; then
+    echo "❌ ERROR: prisma migrate command detected in staged file: $f"
+    exit 1
+  fi
+' _ {}
+
+# Block real DB URLs in staged diff (anywhere in repo)
+if git diff --cached | grep -nE "postgres(ql)?://[^[:space:]]+@"; then
+  echo "❌ ERROR: Real DATABASE_URL detected in commit diff."
+  exit 1
+fi
+
+echo "✅ Pre-commit DB policy passed."

@@ -1,0 +1,32 @@
+name: DB Policy Guard
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Block Prisma Migrate (apps/mysticos only)
+        run: |
+          if grep -R -n -E "prisma migrate|migrate deploy|migrate dev|migrate reset|migrate status|migrate diff" apps/mysticos \
+            --exclude-dir=node_modules --exclude-dir=.next --exclude=*.md \
+            --exclude=scripts/db-guard.sh --exclude=scripts/verify-db.sh; then
+            echo "❌ Prisma migrate command detected under apps/mysticos."
+            exit 1
+          fi
+
+      - name: Ensure schema provider is postgresql
+        run: |
+          grep -n 'provider = "postgresql"' apps/mysticos/prisma/schema.prisma
+
+      - name: Ensure .env is placeholder (no real credentials)
+        run: |
+          if grep -nE "postgres(ql)?://[^[:space:]]+@" apps/mysticos/.env; then
+            echo "❌ Real DATABASE_URL found in apps/mysticos/.env."
+            exit 1
+          fi

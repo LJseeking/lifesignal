@@ -1,0 +1,12 @@
+#!/bin/bash
+set -euo pipefail
+
+echo "Running DB Policy Guard (pre-push)..."
+
+if git grep -nE "prisma migrate|migrate deploy|migrate dev|migrate reset|migrate status|migrate diff" -- apps/mysticos \
+  ':!apps/mysticos/scripts/db-guard.sh' ':!apps/mysticos/scripts/verify-db.sh' 2>/dev/null; then
+  echo "❌ ERROR: prisma migrate detected under apps/mysticos."
+  exit 1
+fi
+
+echo "✅ Pre-push DB policy passed."
