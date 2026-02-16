@@ -1,8 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { submitProfile } from '@/app/onboarding/actions';
 import { Clock, Info, Check } from 'lucide-react';
+import { ProfileSchema } from '@/lib/zod-schemas';
 
 const SHICHEN = [
   { id: 'zi', label: '子时 (23:00-01:00)' },
@@ -27,12 +29,81 @@ const TIME_RANGES = [
 ];
 
 export function OnboardingForm() {
-  const [errors] = useState<Record<string, string>>({});
-  const [isSubmitting] = useState(false);
+  const router = useRouter();
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [precision, setPrecision] = useState<'exact_shichen' | 'approx_range' | 'unknown'>('unknown');
   const [selectedShichen, setSelectedShichen] = useState('');
   const [selectedRange, setSelectedRange] = useState('');
+
+  async function manualSubmit() {
+    setIsSubmitting(true);
+    setErrors({});
+
+    try {
+      const birthDate = (document.getElementsByName('birthDate')[0] as HTMLInputElement)?.value;
+      const gender = (document.getElementsByName('gender')[0] as HTMLSelectElement)?.value;
+      const focus = (document.getElementsByName('focus')[0] as HTMLSelectElement)?.value;
+      const mbti = (document.getElementsByName('mbti')[0] as HTMLInputElement)?.value;
+      const bloodType = (document.getElementsByName('bloodType')[0] as HTMLSelectElement)?.value;
+      const birthPlace = (document.getElementsByName('birthPlace')[0] as HTMLInputElement)?.value;
+
+      const rawData = { 
+        birthDate, 
+        gender, 
+        focus, 
+        mbti, 
+        bloodType,
+        birthPlace,
+        birthTimePrecision: precision,
+        birthShichen: precision === 'exact_shichen' ? selectedShichen : '',
+        birthTimeRange: precision === 'approx_range' ? selectedRange : '',
+      };
+
+      const sanitized = Object.fromEntries(
+        Object.entries(rawData).map(([k, v]) => [k, v === '' ? undefined : v])
+      );
+      
+      const result = ProfileSchema.safeParse(sanitized);
+      if (!result.success) {
+        const fieldErrors: Record<string, string> = {};
+        result.error.issues.forEach(issue => {
+          fieldErrors[issue.path[0] as string] = issue.message;
+        });
+        setErrors(fieldErrors);
+        setIsSubmitting(false);
+        return;
+      }
+
+      const res = await submitProfile(result.data);
+      
+      if (res.success) {
+        router.refresh();
+        setTimeout(() => { window.location.href = '/'; }, 100);
+      } else {
+        if (res.error === 'PROFILE_VALIDATION_ERROR' && (res as any).details) {
+          const details = (res as any).details;
+          const fieldErrors: Record<string, string> = {};
+          if (details.fieldErrors) {
+             Object.entries(details.fieldErrors).forEach(([key, msgs]) => {
+                if (Array.isArray(msgs) && msgs.length > 0) {
+                  fieldErrors[key] = msgs[0] as string;
+                }
+             });
+          }
+          setErrors(fieldErrors);
+        } else {
+          setErrors({ form: res.error || '提交失败' });
+        }
+        setIsSubmitting(false);
+      }
+    } catch (e) {
+      console.error(e);
+      setErrors({ form: '提交发生未知错误' });
+      setIsSubmitting(false);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -57,10 +128,7 @@ export function OnboardingForm() {
         </ul>
       </div>
 
-      <form action={submitProfile} className="space-y-6">
-        <input type="hidden" name="birthTimePrecision" value={precision} />
-        <input type="hidden" name="birthShichen" value={precision === 'exact_shichen' ? selectedShichen : ''} />
-        <input type="hidden" name="birthTimeRange" value={precision === 'approx_range' ? selectedRange : ''} />
+      <div className="space-y-6">
         <div className="space-y-4">
           <div>
             <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">出生日期 *</label>
@@ -170,11 +238,14 @@ export function OnboardingForm() {
             </select>
           </div>
         </div>
+        
+        <input type="hidden" name="birthPlace" value="" />
 
         {errors.form && <p className="text-red-500 text-sm text-center">{errors.form}</p>}
 
         <button 
-          type="submit"
+          type="button"
+          onClick={manualSubmit}
           disabled={isSubmitting}
           className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-indigo-700 transition-all active:scale-[0.98] mt-4 shadow-xl shadow-indigo-100 disabled:opacity-50"
         >
@@ -185,7 +256,7 @@ export function OnboardingForm() {
             </div>
           ) : '查看我的今日建议'}
         </button>
-      </form>
+      </div>
 
       <div className="flex gap-4 justify-center mt-8">
         <a href="/" className="text-xs text-indigo-400 font-bold underline">
