@@ -6,3 +6,9 @@ dist
 git token*
 .vercel
 .env*.local
+
+# local scratch
+cd DocumentsLifeSignalappsmysticos  exit 1.md
+
+# local github scratch
+.github/
