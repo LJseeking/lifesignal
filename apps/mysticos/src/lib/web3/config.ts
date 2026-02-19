@@ -30,8 +30,8 @@ export const BSC_TESTNET_CONFIG = {
     decimals: 18,
   },
   rpcUrls: {
-    default: { http: ["https://bsc-testnet-rpc.publicnode.com"] },
-    public: { http: ["https://bsc-testnet-rpc.publicnode.com"] },
+    default: { http: [process.env.NEXT_PUBLIC_BSC_RPC || "https://bsc-testnet-rpc.publicnode.com"] },
+    public: { http: [process.env.NEXT_PUBLIC_BSC_RPC || "https://bsc-testnet-rpc.publicnode.com"] },
   },
   blockExplorers: {
     default: { name: "BscScan", url: "https://testnet.bscscan.com" },
